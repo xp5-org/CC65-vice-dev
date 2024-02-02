@@ -16,8 +16,6 @@ RUN apt remove -y light-locker xscreensaver && \
     rm -rf /var/cache/apt /var/lib/apt/lists
 
 WORKDIR /app
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
 
 RUN git clone https://github.com/cc65/cc65.git && \
     cd cc65 && \
@@ -36,5 +34,3 @@ cp vice-3.8/data/PLUS4/*.bin /usr/share/vice/PLUS4 && \
 cp vice-3.8/data/C64DTV/*.bin /usr/share/vice/C64DTV && \
 cp vice-3.8/data/VIC20/*.bin /usr/share/vice/VIC20 && \
 cp vice-3.8/data/DRIVES/*.bin /usr/share/vice/DRIVES
-
-ENTRYPOINT ["/app/entrypoint.sh"]
