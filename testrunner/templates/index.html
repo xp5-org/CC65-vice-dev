@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+    <title>Test Runner</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        tr:nth-child(odd) {
+            background-color: #e0e0e0;  /* 25% gray */
+        }
+
+        th:nth-child(1), td:nth-child(1) { width: 25%; }
+        th:nth-child(2), td:nth-child(2) { width: 20%; }
+        th:nth-child(3), td:nth-child(3) { width: 35%; }
+        th:nth-child(4), td:nth-child(4) { width: 20%; }
+
+        .green { background-color: #c8f7c5; }
+        .red { background-color: #f7c5c5; }
+        .gray { background-color: #eeeeee; }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+            line-height: 1;
+            font-size: 14px;
+        }
+
+        li {
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+            display: block;
+        }
+
+        a {
+            display: inline-block;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <p id="progress-status">Progress: Idle</p>
+
+    <h2>Available Tests</h2>
+    <div id="testfile-container"></div>
+
+    <br><br>
+
+    <h1>Most Recent</h1>
+    {% if latest_summary %}
+        <table>
+            <tr><th>Test</th><th>Duration (s)</th><th>Status</th></tr>
+            {% for test, duration, status in latest_summary %}
+                <tr>
+                    <td>{{ test }}</td>
+                    <td>{{ duration }}</td>
+                    <td class="{{ 'green' if status == 'PASS' else ('red' if status == 'FAIL' else 'gray') }}">{{ status }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No reports found.</p>
+    {% endif %}
+
+    <br><br>
+
+    <h2>Summaries</h2>
+    <table>
+        <tr><th>Report</th><th>Duration</th><th>Status</th></tr>
+        {% for report, duration, status in summaries %}
+            <tr>
+                <td><a href="{{ url_for('view_report', filepath=report) }}">{{ report }}</a></td>
+                <td>{{ duration }}</td>
+                <td class="{{ 'green' if status == 'PASS' else ('red' if status == 'FAIL' else 'gray') }}">{{ status }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let polling = false;
+        let pollTimeout;
+
+function pollProgress() {
+    fetch("/progress")
+        .then(response => response.json())
+        .then(data => {
+            const status = document.getElementById("progress-status");
+            if (data.step === "Done") {
+                status.textContent = "Progress: Complete";
+                polling = false;
+                clearTimeout(pollTimeout);
+                location.reload();
+            } else {
+                status.textContent = `Progress: ${data.step} - ${data.test_name}`;
+                pollTimeout = setTimeout(pollProgress, 3000);
+            }
+        })
+        .catch(() => {
+            pollTimeout = setTimeout(pollProgress, 3000);
+        });
+}
+
+
+        fetch("/testfile_list")
+            .then(res => res.json())
+            .then(testfiles => {
+                const container = document.getElementById("testfile-container");
+                const platforms = {};
+
+                testfiles.forEach(test => {
+                    const platform = test.platform || "Unknown";
+                    if (!platforms[platform]) platforms[platform] = [];
+                    platforms[platform].push(test);
+                });
+
+                Object.entries(platforms).forEach(([platform, tests]) => {
+                    const title = document.createElement("h3");
+                    title.textContent = platform;
+                    container.appendChild(title);
+
+                    const table = document.createElement("table");
+                    const header = table.insertRow();
+                    ["ID", "System", "Run"].forEach(text => {
+                        const th = document.createElement("th");
+                        th.textContent = text;
+                        header.appendChild(th);
+                    });
+
+                    tests.forEach(test => {
+                        const row = table.insertRow();
+                        row.insertCell().textContent = test.id || "";
+                        row.insertCell().textContent = test.system || "";
+
+                        const btnCell = row.insertCell();
+                        for (const [type, filename] of Object.entries(test.types)) {
+                            const btn = document.createElement("button");
+                            btn.textContent = type;
+                            btn.addEventListener("click", () => {
+                                if (polling) return;
+                                polling = true;
+                                document.getElementById("progress-status").textContent =
+                                    `Progress: Starting ${test.id} (${type})...`;
+                                fetch(`/run/${filename}`)
+                                    .then(response => {
+                                        if (!response.ok) throw new Error("Failed to start test");
+                                        pollProgress();
+                                    })
+                                    .catch(err => {
+                                        polling = false;
+                                        document.getElementById("progress-status").textContent =
+                                            `Error starting ${test.id} (${type})`;
+                                        console.error(err);
+                                    });
+                            });
+                            btnCell.appendChild(btn);
+                        }
+                    });
+
+                    container.appendChild(table);
+                });
+            });
+    });
+    </script>
+</body>
+</html>
