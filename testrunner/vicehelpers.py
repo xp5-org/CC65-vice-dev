@@ -64,11 +64,16 @@ def wait_for_port(host, port, timeout=10):
 
 
 
-def send_single_command(cmd_str, port):
+def send_single_command(context, name, cmd_str):
     if not isinstance(cmd_str, str):
         raise TypeError(f"cmd_str must be a string, got {type(cmd_str)}: {cmd_str}")
 
-    print(f"Connecting to VICE remote monitor on port {port} to send: {cmd_str.strip()}")
+    instance = context.get(name)
+    if not isinstance(instance, ViceInstance):
+        raise ValueError(f"No ViceInstance named '{name}' in context")
+
+    port = instance.port
+    print(f"Connecting to VICE '{name}' on port {port} to send: {cmd_str.strip()}")
     with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
         sock.sendall((cmd_str + "\n").encode('ascii'))
         sock.shutdown(socket.SHUT_WR)
@@ -78,31 +83,33 @@ def send_single_command(cmd_str, port):
             if not data:
                 break
             response += data
-        print("VICE response:\n", response.decode(errors='ignore'))
+        print(f"VICE '{name}' response:\n", response.decode(errors='ignore'))
         return response.decode(errors='ignore')
 
 
 
 
 
-def send_vice_command(string, port):
+
+def send_vice_command(context, name, string):
     string = string.replace('\n', '\r')
     i = 0
     log = []
 
     while i < len(string):
         chunk = string[i:i + 10]
-        print("Sending this string chunk:", chunk)
+        print(f"Sending to '{name}':", chunk)
         bits = ascii_to_petscii_cmd(chunk)
-        log.append(send_single_command(bits, port))
-        log.append(send_single_command(f"f 00c6 00c6 {len(chunk):02X}", port))
+        log.append(send_single_command(context, name, bits))
+        log.append(send_single_command(context, name, f"f 00c6 00c6 {len(chunk):02X}"))
 
         if i + 10 >= len(string):
-            log.append(send_single_command(f"f 00c6 00c6 {len(chunk):02X}", port))
+            log.append(send_single_command(context, name, f"f 00c6 00c6 {len(chunk):02X}"))
 
         i += 10
 
     return True, "\n".join(log)
+
 
 
 
@@ -159,11 +166,13 @@ import signal
 
 class ViceInstance:
     def __init__(self, name, port, config_path=None, disk_path=None, rom_path=None):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         self.name = name
         self.port = port
-        self.config_path = config_path
-        self.disk_path = disk_path
-        self.rom_path = rom_path
+        self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
+        self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
+
+        self.rom_path = os.path.join(base_dir, rom_path) if rom_path and not os.path.isabs(rom_path) else rom_path
         self.proc = None
         self.thread = None
         self.ready_event = threading.Event()
@@ -191,6 +200,7 @@ class ViceInstance:
             cmd += ["-config", self.config_path]
         if self.disk_path:
             cmd += ["-8", self.disk_path]
+            print("disk path: ", self.disk_path)
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
 
@@ -265,42 +275,78 @@ def launch_vice_instance(context, name, port):
 
 import subprocess
 
+import os
+import subprocess
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
 def compile_cc65(source_file, output_file):
-    # Compile C source to assembly
-    cmd = ['cc65', '-O', '-t', 'c64', '-o', output_file, source_file]
+    source_path = os.path.join(base_dir, source_file)
+    output_path = os.path.join(base_dir, output_file)
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+
+    if not os.path.exists(source_path):
+        return False, f"Source file not found: {source_path}"
+
+    cmd = ['cc65', '-O', '-t', 'c64', '-o', output_path, source_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
 def assemble_ca65(asm_file, obj_file):
-    # Assemble .s file to .o object
-    cmd = ['ca65', '-t', 'c64', '-o', obj_file, asm_file]
+    asm_path = os.path.join(base_dir, asm_file)
+    obj_path = os.path.join(base_dir, obj_file)
+    
+
+    if not os.path.exists(asm_path):
+        return False, f"Assembly file not found: {asm_path}"
+
+    cmd = ['ca65', '-t', 'c64', '-o', obj_path, asm_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
 def link_ld65(obj_file, output_file, library='c64.lib'):
-    # Link object file to final executable .prg
-    cmd = ['ld65', '-o', output_file, '-t', 'c64', obj_file, library]
+    obj_path = os.path.join(base_dir, obj_file)
+    output_path = os.path.join(base_dir, output_file)
+
+    if not os.path.exists(obj_path):
+        return False, f"Object file not found: {obj_path}"
+
+    # Don't prepend base_dir to library, let ld65 find it
+    cmd = ['ld65', '-o', output_path, '-t', 'c64', obj_path, library]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
-def create_blank_d64(d64_name):
-    # Create new blank disk image (empty d64)
-    # Usually done with c1541 -format <name>,<id> <filename>
-    # Here, just creating empty disk image with standard 1541 id "00"
-    cmd = ['c1541', '-format', 'EMPTY', '00', d64_name]
+
+
+def create_blank_d64(d64_name, base_dir=base_dir):
+    d64_path = os.path.join(base_dir, d64_name)
+    os.makedirs(os.path.dirname(d64_path), exist_ok=True)
+
+    try:
+        with open(d64_path, 'wb') as f:
+            f.write(b'\x00' * 174848)
+    except Exception as e:
+        return False, f"Failed to create empty d64: {e}"
+
+    cmd = ['c1541', '-attach', d64_path, '-format', 'EMPTY,08']
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
-def format_and_copyd64(d64_name, prg_file):
-    # Format and copy program to disk image
-    # This command formats the disk and writes the file in one go:
-    # c1541 -format diskname,id d64 test.d64 -attach test.d64 -write test.prg
-    # But since you create blank d64 separately, you can just write the file:
-    cmd = ['c1541', '-attach', d64_name, '-write', prg_file]
+def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
+    d64_path = os.path.join(base_dir, d64_name)
+    prg_path = os.path.join(base_dir, prg_file)
+
+    if not os.path.exists(prg_path):
+        return False, f"PRG file not found: {prg_path}"
+
+    cmd = ['c1541', '-attach', d64_path, '-write', prg_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout

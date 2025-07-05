@@ -1,0 +1,3 @@
+*.pyc
+/testrunner/cc65_tx_output
+/testrunner/cc65_rx_output

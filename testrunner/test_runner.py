@@ -31,6 +31,25 @@ context = {
 
 
 
+
+import importlib
+import sys
+import os
+
+
+
+def reload_tests():
+    helpers.clear_registries()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    test_dir = os.path.join(base_dir, "mytests")
+    for fname in os.listdir(test_dir):
+        if fname.endswith(".py") and not fname.startswith("__"):
+            modname = f"mytests.{fname[:-3]}"
+            if modname in sys.modules:
+                importlib.reload(sys.modules[modname])
+            else:
+                __import__(modname)
+
 import datetime
 import importlib
 
@@ -122,6 +141,7 @@ def run_registered_test(name, registry, context):
 
 
 def run_tests(test_descriptions, registry, context):
+    reload_tests()
     results = []
     total = len(test_descriptions)
 

@@ -16,6 +16,11 @@ qemu_process = None
 compile_logs_dir = "compile_logs"
 
 
+def clear_registries():
+    buildtest_registry[:] = []
+    playtest_registry[:] = []
+    packagetest_registry[:] = []
+    testfile_registry.clear()
 
 
 testfile_registry = {}
