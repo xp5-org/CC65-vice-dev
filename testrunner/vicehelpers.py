@@ -2,15 +2,18 @@ import time
 import os
 import subprocess
 import socket
-from PIL import Image
-import subprocess
-import time
-import socket
 import threading
 import signal
 
-import subprocess
-import time
+VICE_BASE_PORT = 65501
+
+
+
+
+
+
+
+
 
 def start_vice(proc_container, ready_event, port):
     print(f"Starting VICE subprocess on port {port}...")
@@ -25,11 +28,11 @@ def start_vice(proc_container, ready_event, port):
     proc_container["port"] = port
     print(f"VICE subprocess started, PID: {proc.pid}")
     time.sleep(1)  # give VICE time to bind to port
+    self.window_id = find_window_id_by_pid(self.proc.pid)
+    print(f"[{self.name}] Window ID: {self.window_id}")
     ready_event.set()
     proc.wait()
     print("VICE subprocess exited.")
-
-
 
 
 
@@ -125,8 +128,18 @@ def find_vice_window_id():
         return None
     return None
 
-def take_screenshot(output_path="/tmp/vice_screen.png"):
-    win_id = find_vice_window_id()
+
+
+
+def find_window_id_by_name(context, name):
+    instance = context.get(name)
+    if not instance:
+        return None
+    return getattr(instance, "window_id", None)
+
+
+
+def take_screenshot(win_id, output_path="/vice_screen.png"):
     if not win_id:
         print("VICE window not found.")
         return
@@ -138,10 +151,11 @@ def take_screenshot(output_path="/tmp/vice_screen.png"):
 
 
 
-# NEW #
 
 
-VICE_BASE_PORT = 65501
+
+
+
 
 def next_vice_instance(context):
     if "_vice_count" not in context:
@@ -160,9 +174,21 @@ def next_vice_instance(context):
 
 
 
+def find_window_id_by_pid(pid):
+    try:
+        result = subprocess.check_output(["xdotool", "search", "--pid", str(pid)])
+        return result.decode().splitlines()[0].strip()
+    except subprocess.CalledProcessError:
+        return None
 
-import threading
-import signal
+
+
+
+
+
+
+
+
 
 class ViceInstance:
     def __init__(self, name, port, config_path=None, disk_path=None, rom_path=None):
@@ -171,6 +197,8 @@ class ViceInstance:
         self.port = port
         self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
         self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
+        self.window_id = None
+        self.screenshot_count = 0  # <-- ADD THIS LINE
 
         self.rom_path = os.path.join(base_dir, rom_path) if rom_path and not os.path.isabs(rom_path) else rom_path
         self.proc = None
@@ -180,12 +208,13 @@ class ViceInstance:
         self._output_lines = []
         self._stop_reading = threading.Event()
 
+
     def _reader(self):
         with self.proc.stdout:
             for line in iter(self.proc.stdout.readline, ''):
                 with self._output_lock:
                     self._output_lines.append(line)
-                # Optional: print realtime output if you want
+                # print realtime output
                 # print(f"[{self.name}] {line}", end='')
                 if self._stop_reading.is_set():
                     break
@@ -194,8 +223,15 @@ class ViceInstance:
 
     def start(self):
         env = os.environ.copy()
-        env["SDL_VIDEODRIVER"] = "x11"
-        env["SDL_RENDER_DRIVER"] = "software"
+        env["SDL_VIDEODRIVER"] = "x11" # doesnt seem to help
+        env["SDL_RENDER_DRIVER"] = "software" # doesnt seem to help
+        # Ensure DISPLAY is set for X11
+        if "DISPLAY" not in env:
+            env["DISPLAY"] = ":0"  # or get from os.environ or your session
+
+        # Pass XAUTHORITY if it exists and is needed
+        if "XAUTHORITY" in os.environ:
+            env["XAUTHORITY"] = os.environ["XAUTHORITY"]
 
         cmd = ["x64"]
 
@@ -210,7 +246,6 @@ class ViceInstance:
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
 
-        # Print full command line for debug
         print("Starting x64 with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
 
         self.proc = subprocess.Popen(
@@ -221,6 +256,11 @@ class ViceInstance:
             bufsize=1,
             env=env
         )
+
+        time.sleep(1)
+        self.window_id = find_window_id_by_pid(self.proc.pid)
+        print(f"[{self.name}] Window ID: {self.window_id}")
+
 
 
         self.ready_event.set()
@@ -245,14 +285,36 @@ class ViceInstance:
         if self.thread:
             self.thread.join(timeout=timeout)
 
-    @property
-    def output(self):
-        with self._output_lock:
-            return "".join(self._output_lines)
+    def take_screenshot(self, filename=None):
+        if not self.proc or self.proc.poll() is not None:
+            print(f"[{self.name}] VICE process not running.")
+            return False
 
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.screenshot_count += 1
 
+        if filename is None:
+            filename = f"screenshot-{self.name}-{self.screenshot_count}.bmp"
 
+        # Always join with base_dir to get absolute path for consistency
+        filepath = os.path.join(base_dir, filename)
 
+        # VICE saves inside emulated disk, so only send basename as filename
+        virt_filename = os.path.basename(filepath)
+
+        try:
+            with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
+                cmd = f'screenshot "{virt_filename}"\n'
+                sock.sendall(cmd.encode('ascii'))
+                sock.shutdown(socket.SHUT_WR)
+                response = sock.recv(4096).decode(errors='ignore')
+                print(f"[{self.name}] VICE response:\n{response}")
+            print(f"[{self.name}] Screenshot command sent for virtual filename: {virt_filename}")
+            print(f"[{self.name}] On host, expect file inside emulated disk image named: {virt_filename}")
+            return True
+        except Exception as e:
+            print(f"[{self.name}] Failed to send screenshot command:", e)
+            return False
 
 
 
@@ -284,10 +346,7 @@ def launch_vice_instance(context, name, port):
 
 # CC65 disk stuff #
 
-import subprocess
 
-import os
-import subprocess
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 

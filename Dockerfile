@@ -33,7 +33,7 @@ RUN apt-get update && \
         linux-headers-generic \
         libusb-1.0 pkg-config ncurses-dev \
         cc65 \
-        vice && \
+        vice xdotool imagemagick && \
         # for vice make
         #build-essential flex bison \
         #libgtk-3-dev libreadline-dev libpng-dev \

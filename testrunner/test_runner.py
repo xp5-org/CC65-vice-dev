@@ -2,17 +2,14 @@ import os
 import time
 import re
 import datetime
-from PIL import Image
 import shutil
-#import mytests.buildtest
-#import mytests.playtest
-
-import os
-import shutil
-import re
 import datetime
-
 import helpers
+import datetime
+import importlib
+import sys
+
+
 
 PROGRESS_FILE = "progress.txt"
 REPORT_DIR = "reports"
@@ -28,10 +25,6 @@ context = {
 
 
 
-import importlib
-import sys
-import os
-
 
 
 def reload_tests():
@@ -46,8 +39,7 @@ def reload_tests():
             else:
                 __import__(modname)
 
-import datetime
-import importlib
+
 
 
 def run_testfile(module_name):
@@ -173,7 +165,6 @@ def generate_report(results, report_path):
         for filename in os.listdir(compile_logs_dir):
             shutil.move(os.path.join(compile_logs_dir, filename), subdir_path)
 
-    # Move images (.png, .ppm) from REPORT_DIR to report subdir
     # Move images (.png, .ppm, .gif) from REPORT_DIR to report subdir
     for filename in os.listdir(REPORT_DIR):
         if re.match(r"test\d+\.(png|ppm|gif)$", filename):

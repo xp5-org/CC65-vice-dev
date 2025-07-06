@@ -1,6 +1,6 @@
 import os
 import datetime
-from flask import Flask, render_template, send_from_directory, redirect, url_for
+from flask import Flask, render_template, send_from_directory
 from bs4 import BeautifulSoup
 import test_runner
 import threading
@@ -18,9 +18,6 @@ play_REPORT_DIR = REPORT_DIR
 @app.route('/favicon.ico')
 def favicon():
     return app.send_static_file('favicon.ico')
-
-
-
 
 
 
@@ -56,7 +53,6 @@ def get_report_summaries():
                             duration_text = cols[1].get_text(strip=True)
                             test_status = cols[2].get_text(strip=True).upper()
 
-                            # Try to extract duration as float in seconds
                             try:
                                 duration = float(duration_text.rstrip("s"))
                                 duration_total += duration
@@ -77,9 +73,7 @@ def get_report_summaries():
 
 
 
-from collections import defaultdict
 
-from flask import jsonify
 
 @app.route("/testfile_list")
 def testfile_list():
@@ -211,9 +205,6 @@ def run_named_tests(testname):
     return "Started"
 
 
-
-
-from flask import jsonify
 
 @app.route("/progress")
 def progress():
