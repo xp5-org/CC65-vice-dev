@@ -195,22 +195,33 @@ class ViceInstance:
     def start(self):
         env = os.environ.copy()
         env["SDL_VIDEODRIVER"] = "x11"
-        cmd = ["x64", "-remotemonitor", "-remotemonitoraddress", f"127.0.0.1:{self.port}"]
+        env["SDL_RENDER_DRIVER"] = "software"
+
+        cmd = ["x64"]
+
         if self.config_path:
-            cmd += ["-config", self.config_path]
+            config_full_path = os.path.abspath(os.path.join(base_dir, self.config_path))
+            cmd += ["-config", config_full_path]
+
+        cmd += ["-remotemonitor", "-remotemonitoraddress", f"127.0.0.1:{self.port}"]
+
         if self.disk_path:
             cmd += ["-8", self.disk_path]
-            print("disk path: ", self.disk_path)
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
+
+        # Print full command line for debug
+        print("Starting x64 with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
 
         self.proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=env
         )
+
 
         self.ready_event.set()
         self._stop_reading.clear()

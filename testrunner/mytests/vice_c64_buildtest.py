@@ -139,7 +139,7 @@ def build3_launch_rx(context):
 def build4_launch_tx(context):
     name, port = next_vice_instance(context)
     disk = "cc65_tx_output/txtest.d64"
-    config = "ip232conf.cfg"
+    config = "vice_ip232.cfg"
     
     instance = ViceInstance(name, port, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -162,7 +162,7 @@ def build4_launch_tx(context):
 def build4_launch_rx(context):
     name, port = next_vice_instance(context)
     disk = "cc65_rx_output/rxtest.d64"
-    config = "ip232conf.cfg"
+    config = "vice_ip232.cfg"
     
     instance = ViceInstance(name, port, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -202,12 +202,12 @@ def build5_send_run(context):
 @register_buildtest("Build 6 - terminate all")
 def build6_stopallvice(context):
     log = []
-    print("waiting 15s before teardown")
-    time.sleep(15)
+    print("waiting forever before teardown")
+    time.sleep(655)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")
-           # instance.stop()
+            instance.stop()
             log.append(f"{name} has exited.")
 
     if not log:

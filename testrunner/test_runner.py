@@ -14,18 +14,14 @@ import datetime
 
 import helpers
 
-QEMU_IMAGE = "hdd.qcow2"
-MONITOR_PORT = 55555
 PROGRESS_FILE = "progress.txt"
 REPORT_DIR = "reports"
-qemu_process = None
 compile_logs_dir = "compile_logs"
 
 
 
 context = {
     "sock": None,
-    "qemu_process": None,
     "abort": False
 }
 
@@ -55,7 +51,8 @@ import importlib
 
 
 def run_testfile(module_name):
-    import importlib
+    reload_tests() 
+
     full_module_name = f"mytests.{module_name}"
 
     try:
@@ -64,7 +61,6 @@ def run_testfile(module_name):
         print(f"Failed to import {full_module_name}: {e}")
         return []
 
-    # Lookup testfile metadata by full module name
     meta = helpers.testfile_registry.get(full_module_name)
     if not meta:
         print(f"No metadata found for module '{full_module_name}' in helpers.testfile_registry")
@@ -72,13 +68,12 @@ def run_testfile(module_name):
 
     test_types = meta.get("types", [])
     results = []
-    context = {"sock": None, "qemu_process": None}
+    context = {"sock": None}
 
-    # Map test types to global registries
     registry_map = {
         "build": helpers.buildtest_registry,
         "play": helpers.playtest_registry,
-        "package": helpers.packagetest_registry,  # fix spelling if possible
+        "package": helpers.packagetest_registry,
     }
 
     for t in test_types:
@@ -87,9 +82,7 @@ def run_testfile(module_name):
             print(f"No registry found for test type '{t}'")
             continue
 
-        # Filter tests defined in this module only
         tests = [f for f in registry if f.__module__ == full_module_name]
-
         if not tests:
             print(f"No tests found in registry '{t}' for module '{full_module_name}'")
             continue
@@ -97,9 +90,6 @@ def run_testfile(module_name):
         test_cases = [f.test_description for f in tests]
         results.extend(run_tests(test_cases, tests, context))
 
-    if context.get("qemu_process"):
-        context["qemu_process"].terminate()
-        context["qemu_process"].wait(timeout=5)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     subdir_path = os.path.join(REPORT_DIR, timestamp)
@@ -109,6 +99,7 @@ def run_testfile(module_name):
     generate_report(results, report_path)
 
     return results
+
 
 
 

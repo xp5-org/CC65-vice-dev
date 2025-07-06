@@ -2,7 +2,6 @@ FROM ubuntu:25.04
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Update and install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         xfce4 \
@@ -90,7 +89,7 @@ RUN wget -O /tmp/vice-3.8.tar.gz "https://sourceforge.net/projects/vice-emu/file
 #    cd / && rm -rf /tmp/xa-2.4.1 /tmp/xa-2.4.1.tar.gz
 
 
-# build VICE
+# build VICE (currently broken fix later)
 #RUN wget -O /tmp/vice-3.8.tar.gz "https://sourceforge.net/projects/vice-emu/files/releases/vice-3.8.tar.gz/download" --no-check-certificate && \
 #    tar -xzf /tmp/vice-3.8.tar.gz -C /tmp && \
 #    cd /tmp/vice-3.8 && \
@@ -122,7 +121,7 @@ COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
 RUN mkdir /testrunnerapp
-COPY ./myapp /testrunnerapp
+COPY ./testrunner /testrunnerapp
 
 
 # create venv

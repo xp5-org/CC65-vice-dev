@@ -173,7 +173,7 @@ int main(void) {
             rx_char = ACIA_DATA;  // Read received char
 
             sprintf(char_info, "Char: $%02X (%c)    ", rx_char, rx_char);
-            draw_fixed_text(22, 0, char_info, COLOR_WHITE);
+            draw_fixed_text(22, 2, char_info, COLOR_WHITE);
 
             if (rx_char == 0xA3 || rx_char == 0x5C) {
                 continue;
@@ -210,7 +210,7 @@ int main(void) {
 
             col++;
 
-            for (i = 0; i < 500; ++i);  // Fake delay
+            for (i = 0; i < 400; ++i);  // Fake delay
 
             if (col >= GRID_SIZE) {
                 col = 0;
