@@ -184,8 +184,8 @@ class ViceInstance:
     def start(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         env = os.environ.copy()
-        env["SDL_VIDEODRIVER"] = "x11"
-        env["SDL_RENDER_DRIVER"] = "software"
+        # env["SDL_VIDEODRIVER"] = "x11"  # tried this to help with an xrdp flicker issue
+        # env["SDL_RENDER_DRIVER"] = "software" 
 
         if "DISPLAY" not in env:
             env["DISPLAY"] = ":10"
@@ -217,10 +217,10 @@ class ViceInstance:
             env=env
         )
 
-        # Wait for process to spawn its window
+        # need to wait for window to be active, may need more time on a slower system
         time.sleep(1)
 
-        # Retry loop to find a unique new VICE window for this PID
+        # loop to find unique x64 vice window PIDs
         self.window_id = None
         for _ in range(10):
             time.sleep(0.5)
@@ -267,7 +267,6 @@ class ViceInstance:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         reports_dir = os.path.join(base_dir, "reports")
 
-        # Ensure reports directory exists
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
 

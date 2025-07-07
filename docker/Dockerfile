@@ -123,8 +123,15 @@ RUN chmod +x /app/entrypoint.sh
 # setup dir with app code
 #RUN mkdir /testrunnerapp
 #COPY ./testrunner /testrunnerapp
-RUN apt-get update && apt-get install -y git
-RUN git clone https://github.com/xp5-org/CC65-vice-dev.git /testrunnerapp
+RUN mkdir /testrunnerapp && \
+    git init /testrunnerapp && \
+    cd /testrunnerapp && \
+    git remote add origin https://github.com/xp5-org/CC65-vice-dev.git && \
+    git config core.sparseCheckout true && \
+    echo "testrunner/*" > /testrunnerapp/.git/info/sparse-checkout && \
+    git pull origin main
+
+
 
 
 
