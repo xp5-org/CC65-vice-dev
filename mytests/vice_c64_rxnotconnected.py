@@ -131,7 +131,7 @@ def buil4_send_run(context):
 @register_buildtest("Build 5 - screenshot after boot command")
 def build5_screenshot_both(context):
     log = []
-    for name in ["vice1", "vice2"]:
+    for name in ["vice1"]:
         instance = context.get(name)
         if instance:
             print(f"{name} window_id: {instance.window_id}")
@@ -146,7 +146,7 @@ def build5_screenshot_both(context):
 def build6_screenshot_both(context):
     log = []
     time.sleep(30) #replace with some OCR logic or something
-    for name in ["vice1", "vice2"]:
+    for name in ["vice1"]:
         instance = context.get(name)
         if instance:
             print(f"{name} window_id: {instance.window_id}")

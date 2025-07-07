@@ -5,6 +5,7 @@
 #include <c64.h>
 #include <cbm_petscii_charmap.h>
 #include <stdio.h>
+
 #define ACIA_BASE   0xDE00
 #define ACIA_DATA   (*(volatile unsigned char *)(ACIA_BASE))
 #define ACIA_STATUS (*(volatile unsigned char *)(ACIA_BASE + 1))
@@ -19,41 +20,47 @@
 #define COLOR_BASE 0xD800
 
 #define STATUS_LINE_Y 24
-
 #define MAX_SEEN_CHARS 20
 
 unsigned char seen_chars[MAX_SEEN_CHARS];
 unsigned char seen_count = 0;
 
+unsigned char colors[6] = {
+    COLOR_WHITE, COLOR_RED, COLOR_YELLOW,
+    COLOR_CYAN, COLOR_BLACK, COLOR_GREEN
+};
+
+char grid[GRID_SIZE][GRID_SIZE];
+unsigned char grid_colors[GRID_SIZE][GRID_SIZE];
+
+unsigned char get_color_for_char(unsigned char ch) {
+    return colors[ch % 6];
+}
+
 void draw_seen_chars(void) {
     unsigned char i;
     unsigned short offset;
-    char hex_str[4];  // e.g. "$41\0"
+    char hex_str[4];
 
     for (i = 0; i < seen_count; ++i) {
-        offset = i * SCREEN_WIDTH + 0;  // column 0, row i
-        // Format char as hex string with $ prefix
+        offset = i * SCREEN_WIDTH;
         hex_str[0] = '$';
         hex_str[1] = "0123456789ABCDEF"[(seen_chars[i] >> 4) & 0x0F];
         hex_str[2] = "0123456789ABCDEF"[seen_chars[i] & 0x0F];
         hex_str[3] = '\0';
 
-        // Write the 3 chars horizontally
         *((unsigned char*)(CHAR_BASE + offset + 0)) = hex_str[0];
         *((unsigned char*)(COLOR_BASE + offset + 0)) = COLOR_YELLOW;
         *((unsigned char*)(CHAR_BASE + offset + 1)) = hex_str[1];
         *((unsigned char*)(COLOR_BASE + offset + 1)) = COLOR_YELLOW;
         *((unsigned char*)(CHAR_BASE + offset + 2)) = hex_str[2];
         *((unsigned char*)(COLOR_BASE + offset + 2)) = COLOR_YELLOW;
-
-        // Clear any leftover char at col 3 for cleanliness
         *((unsigned char*)(CHAR_BASE + offset + 3)) = ' ';
         *((unsigned char*)(COLOR_BASE + offset + 3)) = COLOR_YELLOW;
     }
 
-    // Clear lines below if fewer chars than MAX_SEEN_CHARS
     for (; i < MAX_SEEN_CHARS; ++i) {
-        offset = i * SCREEN_WIDTH + 0;
+        offset = i * SCREEN_WIDTH;
         *((unsigned char*)(CHAR_BASE + offset + 0)) = ' ';
         *((unsigned char*)(COLOR_BASE + offset + 0)) = COLOR_YELLOW;
         *((unsigned char*)(CHAR_BASE + offset + 1)) = ' ';
@@ -65,17 +72,6 @@ void draw_seen_chars(void) {
     }
 }
 
-
-
-unsigned char colors[6] = {
-    COLOR_WHITE, COLOR_RED, COLOR_YELLOW,
-    COLOR_CYAN, COLOR_BLACK, COLOR_GREEN
-};
-
-char grid[GRID_SIZE][GRID_SIZE];
-unsigned char grid_colors[GRID_SIZE][GRID_SIZE];
-
-// Shift the grid content up by one row (scroll up)
 void shift_grid_up(void) {
     unsigned char row, col;
     for (row = 0; row < GRID_SIZE - 1; ++row) {
@@ -84,14 +80,12 @@ void shift_grid_up(void) {
             grid_colors[row][col] = grid_colors[row + 1][col];
         }
     }
-    // Clear the last row after shift
     for (col = 0; col < GRID_SIZE; ++col) {
         grid[GRID_SIZE - 1][col] = ' ';
         grid_colors[GRID_SIZE - 1][col] = COLOR_WHITE;
     }
 }
 
-// Draw the grid on screen using stored chars and colors
 void draw_grid(void) {
     unsigned char row, col;
     unsigned char screen_row = (SCREEN_HEIGHT - GRID_SIZE) / 2;
@@ -107,7 +101,6 @@ void draw_grid(void) {
     }
 }
 
-// Draw status line centered at line y
 void draw_status_line(unsigned char y, const char* label, const char* msg, unsigned char text_color) {
     unsigned char i;
     unsigned short line_offset = y * SCREEN_WIDTH;
@@ -129,7 +122,6 @@ void draw_status_line(unsigned char y, const char* label, const char* msg, unsig
     }
 }
 
-
 void draw_fixed_text(unsigned char y, unsigned char x, const char* text, unsigned char color) {
     unsigned short offset = y * SCREEN_WIDTH + x;
     unsigned char i;
@@ -139,27 +131,24 @@ void draw_fixed_text(unsigned char y, unsigned char x, const char* text, unsigne
     }
 }
 
-
-// Initialize the 6551 ACIA for receive only
 void init_acia(void) {
-    ACIA_CMD = 0x0B;       // Enable TX/RX, RTS low (TX will be unused here)
-    ACIA_CTRL = 0x0C;      // 9600 baud, 8N1, internal clock
+    ACIA_CMD = 0x0B;
+    ACIA_CTRL = 0x0C;
 }
-
 
 int main(void) {
     unsigned char rx_ready, tx_ready;
     unsigned char rx_char;
-    unsigned char col = 0;
+    unsigned char grid_row = 0;
+    unsigned char grid_col = 0;
     char char_info[20];
     char status_rx[10], status_tx[10];
     long i;
 
     clrscr();
-    cputs("Swiftlink RX Grid Demo\n\r");
+    cputs("Swiftlink RX Demo\n\r");
     init_acia();
 
-    // Initialize grid with spaces and white color
     for (i = 0; i < GRID_SIZE * GRID_SIZE; ++i) {
         ((char*)grid)[i] = ' ';
         ((unsigned char*)grid_colors)[i] = COLOR_WHITE;
@@ -170,7 +159,7 @@ int main(void) {
         rx_ready = (ACIA_STATUS & 0x08) ? 1 : 0;
 
         if (rx_ready) {
-            rx_char = ACIA_DATA;  // Read received char
+            rx_char = ACIA_DATA;
 
             sprintf(char_info, "Char: $%02X (%c)    ", rx_char, rx_char);
             draw_fixed_text(22, 2, char_info, COLOR_WHITE);
@@ -179,7 +168,6 @@ int main(void) {
                 continue;
             }
 
-            // Check if rx_char already in seen_chars
             {
                 unsigned char found = 0;
                 unsigned char k;
@@ -194,7 +182,6 @@ int main(void) {
                     if (seen_count < MAX_SEEN_CHARS) {
                         seen_chars[seen_count++] = rx_char;
                     } else {
-                        // Scroll buffer up and add new char at end
                         for (k = 1; k < MAX_SEEN_CHARS; ++k) {
                             seen_chars[k - 1] = seen_chars[k];
                         }
@@ -204,22 +191,27 @@ int main(void) {
                 }
             }
 
-            // Store char in grid and assign random color
-            grid[GRID_SIZE - 1][col] = rx_char;
-            grid_colors[GRID_SIZE - 1][col] = colors[rand() % 6];
+            grid[grid_row][grid_col] = rx_char;
+            grid_colors[grid_row][grid_col] = get_color_for_char(rx_char);
 
-            col++;
-
-            for (i = 0; i < 400; ++i);  // Fake delay
-
-            if (col >= GRID_SIZE) {
-                col = 0;
-                shift_grid_up();
+            grid_col++;
+            if (grid_col >= GRID_SIZE) {
+                grid_col = 0;
+                grid_row++;
+                if (grid_row >= GRID_SIZE) {
+                    grid_row = 0;
+                    for (i = 0; i < GRID_SIZE * GRID_SIZE; ++i) {
+                        ((char*)grid)[i] = ' ';
+                        ((unsigned char*)grid_colors)[i] = COLOR_WHITE;
+                    }
+                }
             }
 
             draw_grid();
 
-            tx_ready = 1;  // TX not used but mark ready
+            for (i = 0; i < 400; ++i);
+
+            tx_ready = 1;
             strcpy(status_rx, rx_ready ? "Full " : "Empty");
             strcpy(status_tx, tx_ready ? "Ready" : "Busy ");
             draw_status_line(23, "RX: ", status_rx, rx_ready ? COLOR_RED : COLOR_GREEN);

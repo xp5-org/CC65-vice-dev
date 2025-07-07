@@ -26,9 +26,11 @@ unsigned char colors[6] = {
 };
 
 char grid[GRID_SIZE][GRID_SIZE];
-
 unsigned char grid_colors[GRID_SIZE][GRID_SIZE];
 
+unsigned char get_color_for_char(unsigned char ch) {
+    return colors[ch % 6];
+}
 
 void compose_status(char* buf, unsigned char rx_status, unsigned char tx_status) {
     strcpy(buf, "RX: ");
@@ -44,36 +46,9 @@ void wait_tx_ready(void) {
 }
 
 void init_acia(void) {
-    ACIA_CMD = 0x0B;       // TX/RX enable, RTS low
-    ACIA_CTRL = 0x0C;      // 9600 baud, internal clock
+    ACIA_CMD = 0x0B;
+    ACIA_CTRL = 0x0C;
 }
-
-
-void fill_grid_random(void) {
-    unsigned char row, col;
-    for (row = 0; row < GRID_SIZE; ++row) {
-        for (col = 0; col < GRID_SIZE; ++col) {
-            grid[row][col] = 'A' + (rand() % 26);
-            grid_colors[row][col] = colors[rand() % 6];
-        }
-    }
-}
-
-
-void shift_grid_up(void) {
-    unsigned char row, col;
-    for (row = 0; row < GRID_SIZE - 1; ++row) {
-        for (col = 0; col < GRID_SIZE; ++col) {
-            grid[row][col] = grid[row + 1][col];
-            grid_colors[row][col] = grid_colors[row + 1][col];
-        }
-    }
-    for (col = 0; col < GRID_SIZE; ++col) {
-        grid[GRID_SIZE - 1][col] = 'A' + (rand() % 26);
-        grid_colors[GRID_SIZE - 1][col] = colors[rand() % 6];
-    }
-}
-
 
 void draw_grid(void) {
     unsigned char row, col;
@@ -89,7 +64,6 @@ void draw_grid(void) {
         }
     }
 }
-
 
 void draw_status_line(unsigned char y, const char* label, const char* msg, unsigned char text_color) {
     unsigned char i;
@@ -113,54 +87,58 @@ void draw_status_line(unsigned char y, const char* label, const char* msg, unsig
 }
 
 int main(void) {
-    unsigned char col;
     unsigned char rx_ready, tx_ready;
     char status_rx[10], status_tx[10];
-   long i;
+    long i;
+    unsigned char grid_row = 0;
+    unsigned char grid_col = 0;
 
     clrscr();
-    cputs("Swiftlink TX Grid Demo\n\r");
+    cputs("Swiftlink TX Demo\n\r");
     init_acia();
-    fill_grid_random();
-    draw_grid();
+
+    memset(grid, ' ', sizeof(grid));
 
     while (1) {
-        for (col = 0; col < GRID_SIZE; ++col) {
-            unsigned char ch = grid[0][col];
+        unsigned char ch = 'A' + (rand() % 26);
+        unsigned char color = get_color_for_char(ch);
 
-            gotoxy(0, STATUS_LINE_Y - 2);
-            cprintf("Sending: %c   ", ch);
+        gotoxy(0, STATUS_LINE_Y - 2);
+        cprintf("Sending: %c   ", ch);
 
-            tx_ready = 0;
-            rx_ready = (ACIA_STATUS & 0x08) ? 1 : 0;
+        tx_ready = 0;
+        rx_ready = (ACIA_STATUS & 0x08) ? 1 : 0;
 
-            strcpy(status_rx, rx_ready ? "Full " : "Empty");
-            strcpy(status_tx, tx_ready ? "Ready" : "Busy ");
-            draw_status_line(23, "RX: ", status_rx, rx_ready ? COLOR_RED : COLOR_GREEN);
-            draw_status_line(24, "TX: ", status_tx, tx_ready ? COLOR_GREEN : COLOR_RED);
+        strcpy(status_rx, rx_ready ? "Full " : "Empty");
+        strcpy(status_tx, tx_ready ? "Ready" : "Busy ");
+        draw_status_line(23, "RX: ", status_rx, rx_ready ? COLOR_RED : COLOR_GREEN);
+        draw_status_line(24, "TX: ", status_tx, tx_ready ? COLOR_GREEN : COLOR_RED);
 
-            ACIA_DATA = ch;
-            //wait_tx_ready();
-          //ACIA_DATA = ch;
-		for (i = 0; i < 3000; ++i);  // Fake delay
+        ACIA_DATA = ch;
+        for (i = 0; i < 3000; ++i);  // delay
 
+        grid[grid_row][grid_col] = ch;
+        grid_colors[grid_row][grid_col] = color;
 
-            tx_ready = 1;
-            rx_ready = (ACIA_STATUS & 0x08) ? 1 : 0;
-
-            strcpy(status_rx, rx_ready ? "Full " : "Empty");
-            strcpy(status_tx, tx_ready ? "Ready" : "Busy ");
-            draw_status_line(23, "RX: ", status_rx, rx_ready ? COLOR_RED : COLOR_GREEN);
-            draw_status_line(24, "TX: ", status_tx, tx_ready ? COLOR_GREEN : COLOR_RED);
-
-           // while (1) {
-           //     volatile unsigned char dummy = ACIA_DATA;
-           //     (void)dummy;
-           // }
+        {
+            unsigned char screen_row = (SCREEN_HEIGHT - GRID_SIZE) / 2 + grid_row;
+            unsigned char screen_col = (SCREEN_WIDTH - GRID_SIZE) / 2 + grid_col;
+            unsigned short screen_index = screen_row * SCREEN_WIDTH + screen_col;
+            *((unsigned char*)(CHAR_BASE + screen_index)) = ch;
+            *((unsigned char*)(COLOR_BASE + screen_index)) = color;
         }
 
-        shift_grid_up();
-        draw_grid();
+        grid_col++;
+        if (grid_col >= GRID_SIZE) {
+            grid_col = 0;
+            grid_row++;
+            if (grid_row >= GRID_SIZE) {
+                grid_row = 0;
+                memset(grid, ' ', sizeof(grid));
+                memset(grid_colors, COLOR_WHITE, sizeof(grid_colors));
+                draw_grid();
+            }
+        }
     }
 
     return 0;
