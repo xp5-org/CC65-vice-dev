@@ -4,6 +4,8 @@ import subprocess
 import socket
 import threading
 import signal
+from PIL import Image
+
 
 VICE_BASE_PORT = 65501
 
@@ -11,28 +13,6 @@ VICE_BASE_PORT = 65501
 
 
 
-
-
-
-
-def start_vice(proc_container, ready_event, port):
-    print(f"Starting VICE subprocess on port {port}...")
-
-    proc = subprocess.Popen(
-        ["x64", "-remotemonitor", f"-remotemonitoraddress", f"127.0.0.1:{port}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-
-    proc_container["proc"] = proc
-    proc_container["port"] = port
-    print(f"VICE subprocess started, PID: {proc.pid}")
-    time.sleep(1)  # give VICE time to bind to port
-    self.window_id = find_window_id_by_pid(self.proc.pid)
-    print(f"[{self.name}] Window ID: {self.window_id}")
-    ready_event.set()
-    proc.wait()
-    print("VICE subprocess exited.")
 
 
 
@@ -117,42 +97,6 @@ def send_vice_command(context, name, string):
 
 
 
-def find_vice_window_id():
-    try:
-        output = subprocess.check_output(["xwininfo", "-root", "-tree"]).decode()
-        for line in output.splitlines():
-            if "VICE" in line and line.strip().startswith("0x"):
-                parts = line.strip().split()
-                return parts[0]
-    except subprocess.CalledProcessError:
-        return None
-    return None
-
-
-
-
-def find_window_id_by_name(context, name):
-    instance = context.get(name)
-    if not instance:
-        return None
-    return getattr(instance, "window_id", None)
-
-
-
-def take_screenshot(win_id, output_path="/vice_screen.png"):
-    if not win_id:
-        print("VICE window not found.")
-        return
-    try:
-        subprocess.run(["import", "-window", win_id, output_path], check=True)
-        print(f"Screenshot saved to {output_path}")
-    except subprocess.CalledProcessError as e:
-        print("Failed to take screenshot:", e)
-
-
-
-
-
 
 
 
@@ -174,12 +118,24 @@ def next_vice_instance(context):
 
 
 
+assigned_window_ids = set()
+
 def find_window_id_by_pid(pid):
     try:
         result = subprocess.check_output(["xdotool", "search", "--pid", str(pid)])
-        return result.decode().splitlines()[0].strip()
+        for line in result.decode().splitlines():
+            wid = line.strip()
+            try:
+                title = subprocess.check_output(["xdotool", "getwindowname", wid]).decode().strip()
+                if "VICE" in title or "C64" in title:
+                    return wid
+            except subprocess.CalledProcessError:
+                continue
     except subprocess.CalledProcessError:
         return None
+    return None
+
+
 
 
 
@@ -198,8 +154,7 @@ class ViceInstance:
         self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
         self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
         self.window_id = None
-        self.screenshot_count = 0  # <-- ADD THIS LINE
-
+        self.screenshot_count = 0
         self.rom_path = os.path.join(base_dir, rom_path) if rom_path and not os.path.isabs(rom_path) else rom_path
         self.proc = None
         self.thread = None
@@ -207,6 +162,11 @@ class ViceInstance:
         self._output_lock = threading.Lock()
         self._output_lines = []
         self._stop_reading = threading.Event()
+        
+
+    seen_window_ids = set()
+
+
 
 
     def _reader(self):
@@ -222,14 +182,14 @@ class ViceInstance:
         self.proc.wait()
 
     def start(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         env = os.environ.copy()
-        env["SDL_VIDEODRIVER"] = "x11" # doesnt seem to help
-        env["SDL_RENDER_DRIVER"] = "software" # doesnt seem to help
-        # Ensure DISPLAY is set for X11
-        if "DISPLAY" not in env:
-            env["DISPLAY"] = ":0"  # or get from os.environ or your session
+        env["SDL_VIDEODRIVER"] = "x11"
+        env["SDL_RENDER_DRIVER"] = "software"
 
-        # Pass XAUTHORITY if it exists and is needed
+        if "DISPLAY" not in env:
+            env["DISPLAY"] = ":10"
+
         if "XAUTHORITY" in os.environ:
             env["XAUTHORITY"] = os.environ["XAUTHORITY"]
 
@@ -257,17 +217,27 @@ class ViceInstance:
             env=env
         )
 
+        # Wait for process to spawn its window
         time.sleep(1)
-        self.window_id = find_window_id_by_pid(self.proc.pid)
+
+        # Retry loop to find a unique new VICE window for this PID
+        self.window_id = None
+        for _ in range(10):
+            time.sleep(0.5)
+            self.window_id = self.find_window_id_by_pid(self.proc.pid)
+            if self.window_id:
+                break
+
         print(f"[{self.name}] Window ID: {self.window_id}")
-
-
 
         self.ready_event.set()
         self._stop_reading.clear()
         self.thread = threading.Thread(target=self._reader, name=f"{self.name}-stdout-reader")
         self.thread.daemon = True
         self.thread.start()
+
+
+
 
     def wait_for_ready(self, timeout=15):
         self.ready_event.wait(timeout)
@@ -285,53 +255,87 @@ class ViceInstance:
         if self.thread:
             self.thread.join(timeout=timeout)
 
-    def take_screenshot(self, filename=None):
+    def take_screenshot(self, test_step=None, filename=None):
         if not self.proc or self.proc.poll() is not None:
             print(f"[{self.name}] VICE process not running.")
             return False
 
+        if not self.window_id:
+            print(f"[{self.name}] No window ID cached, cannot take screenshot.")
+            return False
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
+        reports_dir = os.path.join(base_dir, "reports")
+
+        # Ensure reports directory exists
+        if not os.path.exists(reports_dir):
+            os.makedirs(reports_dir)
+
         self.screenshot_count += 1
 
         if filename is None:
-            filename = f"screenshot-{self.name}-{self.screenshot_count}.bmp"
+            if test_step:
+                filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
+            else:
+                filename = f"screenshot-{self.name}-{self.screenshot_count}.png"
 
-        # Always join with base_dir to get absolute path for consistency
-        filepath = os.path.join(base_dir, filename)
-
-        # VICE saves inside emulated disk, so only send basename as filename
-        virt_filename = os.path.basename(filepath)
+        filepath = os.path.join(reports_dir, filename)
 
         try:
-            with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
-                cmd = f'screenshot "{virt_filename}"\n'
-                sock.sendall(cmd.encode('ascii'))
-                sock.shutdown(socket.SHUT_WR)
-                response = sock.recv(4096).decode(errors='ignore')
-                print(f"[{self.name}] VICE response:\n{response}")
-            print(f"[{self.name}] Screenshot command sent for virtual filename: {virt_filename}")
-            print(f"[{self.name}] On host, expect file inside emulated disk image named: {virt_filename}")
-            return True
-        except Exception as e:
-            print(f"[{self.name}] Failed to send screenshot command:", e)
+            subprocess.run(["xdotool", "windowmap", self.window_id], check=True)
+            subprocess.run(["xdotool", "windowactivate", self.window_id], check=True)
+
+            subprocess.run(["import", "-window", self.window_id, filepath], check=True)
+            print(f"[{self.name}] Screenshot saved to {filepath}")
+
+            if croptheimage(filepath):
+                return True
+            else:
+                print(f"[{self.name}] Failed to crop screenshot")
+                return False
+
+        except subprocess.CalledProcessError as e:
+            print(f"[{self.name}] Failed to take screenshot: {e}")
             return False
+        
+    def find_window_id_by_pid(self, pid):
+        try:
+            result = subprocess.check_output(["xdotool", "search", "--pid", str(pid)])
+            for line in result.decode().splitlines():
+                wid = line.strip()
+                if wid in ViceInstance.seen_window_ids:
+                    continue
+                try:
+                    title = subprocess.check_output(["xdotool", "getwindowname", wid]).decode().strip()
+                    if "VICE" in title or "C64" in title:
+                        ViceInstance.seen_window_ids.add(wid)
+                        return wid
+                except subprocess.CalledProcessError:
+                    continue
+        except subprocess.CalledProcessError:
+            return None
+        return None
 
 
 
-def launch_vice_instance(context, name, port):
-    log = []
-    instance = ViceInstance(name, port)
-    log.append(f"Launching VICE instance '{name}' on port {port}")
-    instance.start()
 
-    if not instance.wait_for_ready():
-        log.append(f"Timeout waiting for VICE port {port}")
-        return False, "\n".join(log)
 
-    time.sleep(3)
-    context[name] = instance
-    log.append(f"VICE instance '{name}' is ready")
-    return True, "\n".join(log)
+
+def croptheimage(image_path):
+    try:
+        img = Image.open(image_path)
+        width, height = img.size
+        # Crop box: (left, upper, right, lower)
+        crop_box = (0, 25, width, height - 75)
+        cropped = img.crop(crop_box)
+        cropped.save(image_path, format='PNG')
+        print(f"Cropped image saved to {image_path}")
+        return True
+    except Exception as e:
+        print(f"Failed to crop image {image_path}: {e}")
+        return False
+
+
 
 
 

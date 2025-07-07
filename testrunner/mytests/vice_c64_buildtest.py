@@ -193,35 +193,63 @@ def build5_send_run(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - screenshot both VICE windows")
+@register_buildtest("Build 6 - screenshot after boot command")
 def build6_screenshot_both(context):
     log = []
     for name in ["vice1", "vice2"]:
         instance = context.get(name)
         if instance:
-            success = instance.take_screenshot()
-            if success:
-                log.append(f"Screenshot taken for {name}")
-            else:
-                log.append(f"Failed to take screenshot for {name}")
+            print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=7)
+            print(f"Screenshot for {name} taken: {success}")
         else:
-            log.append(f"No ViceInstance found for {name}")
+            print(f"No ViceInstance found for {name}")
+    return True, "\n".join(log)
+
+
+@register_buildtest("Build 8 - screenshot after program start")
+def build6_screenshot_both(context):
+    log = []
+    time.sleep(30) #replace with some OCR logic or something
+    for name in ["vice1", "vice2"]:
+        instance = context.get(name)
+        if instance:
+            print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=8)
+            print(f"Screenshot for {name} taken: {success}")
+        else:
+            print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
 
-
-@register_buildtest("Build 7 - terminate all")
-def build7_stopallvice(context):
+@register_buildtest("Build 8 - terminate all")
+def build8_stopallvice(context):
     log = []
     print("waiting 60s before teardown")
-    time.sleep(10)
+    time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")
             instance.stop()
             log.append(f"{name} has exited.")
     if not log:
-        return False, "No VICE instances found to stop."
+        log.append("No VICE instances found to stop.")
+    
+    with relay_lock:
+        relay_info = context.get(name)
+        if relay_info and relay_info.get("started"):
+            # Call your server stop function here:
+            ip232relayserver.stop_server()  # You must implement this to stop the server loop
+
+            # Wait for thread to finish
+            thread = relay_info.get("thread")
+            if thread:
+                thread.join(timeout=5)
+
+            relay_info["started"] = False
+            log.append(f"{name} stopped")
+        else:
+            log.append(f"{name} not running")
 
     return True, "\n".join(log)

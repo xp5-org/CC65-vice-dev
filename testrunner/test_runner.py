@@ -154,7 +154,14 @@ def run_tests(test_descriptions, registry, context):
 
 
 
+
+
 def generate_report(results, report_path):
+    from collections import defaultdict
+    import re
+    import shutil
+    import os
+
     subdir_path = os.path.dirname(report_path)
     print(f"Creating directory: '{subdir_path}'")
     if subdir_path and not os.path.exists(subdir_path):
@@ -165,12 +172,23 @@ def generate_report(results, report_path):
         for filename in os.listdir(compile_logs_dir):
             shutil.move(os.path.join(compile_logs_dir, filename), subdir_path)
 
-    # Move images (.png, .ppm, .gif) from REPORT_DIR to report subdir
+    # Move images from REPORT_DIR into subdir (including screenshots)
     for filename in os.listdir(REPORT_DIR):
-        if re.match(r"test\d+\.(png|ppm|gif)$", filename):
+        if (re.match(r"test\d+\.(png|ppm|gif)$", filename) or
+            filename.startswith("screenshot-")):
             shutil.move(os.path.join(REPORT_DIR, filename), subdir_path)
 
+    # Collect screenshots by integer test step
+    screenshot_map = defaultdict(list)
+    for fname in os.listdir(subdir_path):
+        if fname.endswith((".png", ".gif")):
+            # Match filenames like screenshot-vice1-6-1.png or screenshot-vice2-6.png
+            m = re.match(r"screenshot-[^-]+-(\d+)(?:-\d+)?\.(png|gif)$", fname)
+            if m:
+                step_num = int(m.group(1))
+                screenshot_map[step_num].append(fname)
 
+    # Write HTML report
     with open(report_path, "w") as f:
         f.write("""<html>
 <head>
@@ -215,8 +233,6 @@ pre {
 }
 hr { margin: 40px 0; }
 </style>
-
-
 </head>
 <body>
 <h1>Test Report</h1>
@@ -224,53 +240,41 @@ hr { margin: 40px 0; }
 <tr><th>Test Name</th><th>Duration (s)</th><th>Result</th></tr>
 """)
 
+        # Summary table
         for name, status, color, _, _, duration in results:
             f.write(f'<tr><td>{name}</td><td>{duration:.2f}</td><td class="{color}">{status}</td></tr>\n')
 
         f.write("</table><h2>Detailed Output</h2>\n")
 
-        # Map screenshots by test index (expects files like test1.png, test2.png, ...)
-        screenshot_map = {}
-        for fname in os.listdir(subdir_path):
-            m_png = re.match(r"test(\d+)\.png$", fname)
-            m_gif = re.match(r"test(\d+)\.gif$", fname)
-            if m_gif:
-                idx = int(m_gif.group(1))
-                screenshot_map[idx] = fname  # store GIF with priority
-            elif m_png:
-                idx = int(m_png.group(1))
-                # Only add PNG if GIF not already present for this index
-                if idx not in screenshot_map:
-                    screenshot_map[idx] = fname
-
-        for idx, (name, status, color, output, stdout, duration) in enumerate(results):
-            img_index = idx + 1
-            if img_index in screenshot_map:
-                img_file = screenshot_map[img_index]
-                img_tag = f'<img src="{img_file}" alt="{img_file}" style="max-width: 100%; border: 1px solid #ccc;">'
+        # Detailed sections with screenshots linked by index (starting at 1)
+        for idx, (name, status, color, output, stdout, duration) in enumerate(results, start=1):
+            matching_images = screenshot_map.get(idx, [])
+            if matching_images:
+                img_tags = "\n".join(
+                    f'<img src="{img}" alt="{img}" style="max-width: 100%; border: 1px solid #ccc;">'
+                    for img in matching_images
+                )
             else:
-                img_tag = "<p>No screenshot available.</p>"
+                img_tags = "<p>No screenshot available.</p>"
 
-            f.write(f"""
-<hr>
+            f.write(f"""<hr>
 <div class="flex-container">
     <div class="output-column">
         <h3>{name}</h3>
         <p><strong>Duration:</strong> {duration:.2f} seconds</p>
-        <pre>
-        OUTPUT:\n{output}\n\n
-        STDOUT:\n{stdout}\n\n</pre>
+        <pre>OUTPUT:
+{output}
+
+STDOUT:
+{stdout}</pre>
     </div>
     <div class="image-column">
         <h4>Screenshot</h4>
-        {img_tag}
+        {img_tags}
     </div>
 </div>
-
 """)
 
         f.write("</body></html>")
+
     print(f"Wrote report to {report_path}")
-
-            
-
