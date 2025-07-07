@@ -166,7 +166,9 @@ class ViceInstance:
 
     seen_window_ids = set()
 
-
+    def get_output(self):
+        with self._output_lock:
+            return list(self._output_lines)
 
 
     def _reader(self):
