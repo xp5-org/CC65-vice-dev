@@ -9,7 +9,8 @@ from flask import jsonify
 
 
 app = Flask(__name__)
-REPORT_DIR = os.path.join(os.getcwd(), "reports")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPORT_DIR = os.path.join(BASE_DIR, "reports")
 build_REPORT_DIR = REPORT_DIR
 play_REPORT_DIR = REPORT_DIR
 

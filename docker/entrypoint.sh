@@ -32,8 +32,10 @@ xfce4-terminal --hold --command="bash -c '. /opt/venv/bin/activate && python3 /t
 EOF
 
 chmod +x /home/$USERNAME/Desktop/runme.sh
-sudo chown -R user:user /opt/venv
-sudo chown -R user:user /app
+sudo chown -R $USERNAME:user /opt/venv
+sudo chown -R $USERNAME:user /app
+sudo chown -R $USERNAME:user /testrunnerapp
+sudo chown -R $USERNAME:user /home/user
 
 # Start and stop scripts
 echo -e "starting xrdp services...\n"

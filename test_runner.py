@@ -12,8 +12,10 @@ import sys
 
 
 PROGRESS_FILE = "progress.txt"
-REPORT_DIR = "reports"
-compile_logs_dir = "compile_logs"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPORT_DIR = os.path.join(BASE_DIR, "reports")
+compile_logs_dir = os.path.join(BASE_DIR, "compile_logs")
+
 
 
 
@@ -177,6 +179,7 @@ def generate_report(results, report_path):
         if (re.match(r"test\d+\.(png|ppm|gif)$", filename) or
             filename.startswith("screenshot-")):
             shutil.move(os.path.join(REPORT_DIR, filename), subdir_path)
+            print("moved image to ", REPORT_DIR, filename)
 
     # Collect screenshots by integer test step
     screenshot_map = defaultdict(list)

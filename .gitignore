@@ -1,5 +1,5 @@
 *.pyc
-/testrunner/cc65_tx_output
-/testrunner/cc65_rx_output
-/testrunner/reports
-/testrunner/progress.txt
+/progress.txt
+/cc65_rx_output
+/cc65_tx_output
+/reports

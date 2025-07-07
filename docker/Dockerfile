@@ -114,31 +114,18 @@ RUN git clone https://github.com/OpenCBM/OpenCBM.git && \
     make -f LINUX/Makefile install && \
     make -f LINUX/Makefile ldconfig
 
-#WORKDIR /root/cc65
-#RUN make && make avail
-
 COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
 # setup dir with app code
-#RUN mkdir /testrunnerapp
-#COPY ./testrunner /testrunnerapp
-RUN mkdir /testrunnerapp && \
-    git init /testrunnerapp && \
-    cd /testrunnerapp && \
-    git remote add origin https://github.com/xp5-org/CC65-vice-dev.git && \
-    git config core.sparseCheckout true && \
-    echo "testrunner/*" > /testrunnerapp/.git/info/sparse-checkout && \
-    git pull origin main
-
-
-
+RUN apt-get update && apt-get install -y git
+RUN git clone https://github.com/xp5-org/CC65-vice-dev.git /myapp
 
 
 # create venv
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install -r /testrunnerapp/requirements.txt
+    /opt/venv/bin/pip install -r /myapp/requirements.txt
 ENV VENV_PATH=/opt/venv
 
 EXPOSE 3389 8080
