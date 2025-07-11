@@ -29,8 +29,8 @@ register_testfile(
 
 
 
-@register_buildtest("Build 3 - start relay server")
-def build3_launch_rx(context):
+@register_buildtest("Build 1 - start relay server")
+def build1_startrelay(context):
     print("ip232relayserver loaded:", __file__)
     print("Has start_server():", hasattr(ip232relayserver, 'start_server'))
     global relay_started
@@ -52,8 +52,8 @@ def build3_launch_rx(context):
 
 
 
-@register_buildtest("Build 9 - terminate relay & collect logs")
-def build9_stoprelay(context):
+@register_buildtest("Build 2 - terminate relay & collect logs")
+def build2_stoprelay(context):
     log = []
     name = "relay_server"
 
