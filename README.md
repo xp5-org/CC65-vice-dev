@@ -1,5 +1,12 @@
 <h1 align="center">Vice & CC65 build and test automation</h1>
 
+```
+git clone https://github.com/xp5-org/CC65-vice-dev.git
+cd CC65-vice-dev
+docker build ./ -t vicedev
+docker run -it --rm -p 3389:3389 -p 8080:8080 -e USERPASSWORD=a -v "$(pwd)":/testrunnerapp -e USERNAME=user vicedev:latest
+```
+
 This is built off the QEMU automation framework
 It's also a Dockerfile of ubuntu:25.04 with XRDP, VICE, CC65, and OpenCBM built
 
