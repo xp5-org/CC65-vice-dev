@@ -170,5 +170,25 @@ def build8_stopallvice(context):
             log.append(f"{name} has exited.")
     if not log:
         log.append("No VICE instances found to stop.")
+    return True, "\n".join(log)
+
+
+@register_buildtest("Build 9 - terminate relay & collect logs")
+def build9_stoprelay(context):
+    log = []
+    name = "relay_server"
+
+    with relay_lock:
+        relay_info = context.get(name)
+        if relay_info and relay_info.get("started"):
+            thread = relay_info.get("thread")
+            logs = ip232relayserver.stop_server()  # this returns the per-client log lines
+            if thread:
+                thread.join(timeout=5)
+            relay_info["started"] = False
+            log.append("relay stopped")
+            log.extend(logs)
+        else:
+            log.append("error: relay server was not running")
 
     return True, "\n".join(log)
