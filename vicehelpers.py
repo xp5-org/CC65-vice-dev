@@ -187,7 +187,7 @@ class ViceInstance:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         env = os.environ.copy()
         # env["SDL_VIDEODRIVER"] = "x11"  # tried this to help with an xrdp flicker issue
-        # env["SDL_RENDER_DRIVER"] = "software" 
+        # env["SDL_RENDER_DRIVER"] = "software" # doesnt change anything
 
         if "DISPLAY" not in env:
             env["DISPLAY"] = ":10"

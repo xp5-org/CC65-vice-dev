@@ -118,14 +118,17 @@ COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
 # setup dir with app code
-RUN apt-get update && apt-get install -y git
-RUN git clone https://github.com/xp5-org/CC65-vice-dev.git /myapp
+#RUN apt-get update && apt-get install -y git
+#RUN git clone https://github.com/xp5-org/CC65-vice-dev.git /myapp
 
-
+COPY requirements.txt /app/
 # create venv
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
-    /opt/venv/bin/pip install -r /myapp/requirements.txt
+    /opt/venv/bin/pip install -r /app/requirements.txt && \
+    chgrp -R users /opt/venv && \
+    chmod -R g+rwX /opt/venv && \
+    find /opt/venv -type d -exec chmod g+s {} \;
 ENV VENV_PATH=/opt/venv
 
 EXPOSE 3389 8080

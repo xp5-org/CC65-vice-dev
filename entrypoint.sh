@@ -23,7 +23,7 @@ addgroup "$USERNAME"
 useradd -m -s /bin/bash -g "$USERNAME" "$USERNAME"
 echo "$USERNAME:$USERPASSWORD" | chpasswd 
 usermod -aG sudo "$USERNAME"
-
+echo "debug1"
 
 mkdir -p /home/$USERNAME/Desktop/
 cat <<EOF > /home/$USERNAME/Desktop/runme.sh
@@ -31,15 +31,25 @@ cat <<EOF > /home/$USERNAME/Desktop/runme.sh
 xfce4-terminal --hold --command="bash -c '. /opt/venv/bin/activate && python3 /testrunnerapp/app.py'"
 EOF
 
+echo "debug2"
+
 chmod +x /home/$USERNAME/Desktop/runme.sh
-sudo chown -R $USERNAME:user /opt/venv
+echo "debug2.1"
+#sudo chown -R $USERNAME:user /opt/venv
+echo "debug2.2"
 sudo chown -R $USERNAME:user /app
+echo "debug2.3"
 sudo chown -R $USERNAME:user /testrunnerapp
+echo "debug2.4"
 sudo chown -R $USERNAME:user /home/user
+
+echo "debug3"
 
 # Start and stop scripts
 echo -e "starting xrdp services...\n"
 trap "pkill -f xrdp" SIGKILL SIGTERM SIGHUP SIGINT EXIT
+
+echo "debug4"
 
 # start xrdp desktop
 rm -rf /var/run/xrdp*.pid

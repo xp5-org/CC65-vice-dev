@@ -99,7 +99,6 @@ def testfile_list():
         for t in meta["types"]:
             grouped[meta["id"]]["types"][t] = file
         grouped[meta["id"]]["files"].append(file)
-        # Only set description, system, platform if not set yet
         if grouped[meta["id"]]["description"] is None:
             grouped[meta["id"]]["description"] = meta.get("description")
         if grouped[meta["id"]]["system"] is None:
@@ -142,7 +141,6 @@ def get_latest_report_summary():
     if not all_reports:
         return []
 
-    # sort timestamp dir
     all_reports.sort(reverse=True)
     latest_subdir, latest_file = all_reports[0]
     latest_path = os.path.join(build_REPORT_DIR, latest_subdir, latest_file)
