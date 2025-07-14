@@ -17,7 +17,7 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="fourscreen",
+    id="RX disconnected",
     types=["build"],
     system="C64",
     platform="VICE",
@@ -29,8 +29,8 @@ register_testfile(
 
 @register_buildtest("build 1 - rx client")
 def build1_rxclient(context):
-    src_dir = 'cc65_rx_src'
-    out_dir = 'cc65_rx_output'
+    src_dir = 'c64src/randchardebug'
+    out_dir = 'c64output/randchardebug_rx'
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, 'rxtest.c')
     asm_file = os.path.join(out_dir, 'rxtest.s')
@@ -70,7 +70,7 @@ def build1_rxclient(context):
 
 
 @register_buildtest("Build 2 - start relay server")
-def build2_startrelay(context):
+def build2_launch_rx(context):
     print("ip232relayserver loaded:", __file__)
     print("Has start_server():", hasattr(ip232relayserver, 'start_server'))
     global relay_started
@@ -92,21 +92,28 @@ def build2_startrelay(context):
 
 
 
-
-@register_buildtest("Build 3 - start 1x TX vice instance")
-def build3_launch_tx(context):
+@register_buildtest("Build 3 - start RX vice instance")
+def build3_launch_rx(context):
     name, port = next_vice_instance(context)
-    disk = "cc65_tx_output/txtest.d64"
-    config = "vice_ip232_tx.cfg"
+    disk = "c64output/randchardebug_rx/rxtest.d64"
+    config = "vice_ip232_rx.cfg"
+    
     instance = ViceInstance(name, port, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
-    
-    instance.start()
-    time.sleep(5) # wait for C64 to boot
+
+    started = instance.start()
+    if not started:
+        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+        context["abort"] = True
+        return False, "\n".join(log)
+
+    time.sleep(3)  # wait for C64 to boot
+
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
         return False, "\n".join(log)
+
     context[name] = instance
     log.append(f"{name} is ready")
     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
@@ -115,40 +122,10 @@ def build3_launch_tx(context):
 
 
 
-@register_buildtest("Build 4 - start 3x RX vice instances")
-def build4_launch_rx(context):
-    disk = "cc65_rx_output/rxtest.d64"
-    config = "vice_ip232_rx.cfg"
+@register_buildtest("Build 4 - send RUN")
+def buil4_send_run(context):
     log = []
-    success = True
-
-    for i in range(3):
-        name, port = next_vice_instance(context)
-        instance = ViceInstance(name, port, config_path=config, disk_path=disk)
-        log.append(f"Launching {name} on port {port} with disk={disk} config={config}")
-        
-        instance.start()
-        time.sleep(5)
-
-        if not instance.wait_for_ready():
-            log.append(f"{name} did not become ready on port {port}")
-            log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-            success = False
-            continue
-        
-        context[name] = instance
-        log.append(f"{name} is ready")
-        log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-
-    return success, "\n".join(log)
-
-
-
-
-@register_buildtest("Build 5 - send RUN")
-def build5_send_run(context):
-    log = []
-    for name in ["vice1", "vice2", "vice3", "vice4"]:
+    for name in ["vice1", "vice2"]:
         try:
             success, output = send_vice_command(context, name, 'LOAD "*",8\n')
             time.sleep(3)
@@ -159,34 +136,31 @@ def build5_send_run(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - screenshot after boot command")
-def build6_screenshot_all(context):
+@register_buildtest("Build 5 - screenshot after boot command")
+def build5_screenshot_both(context):
     log = []
-    for name in ["vice1", "vice2", "vice3", "vice4"]:
-        try:
-            instance = context.get(name)
-            if instance:
-                print(f"{name} window_id: {instance.window_id}")
-                success = instance.take_screenshot(test_step=5)
-                print(f"Screenshot for {name} taken: {success}")
-        except:
+    for name in ["vice1"]:
+        instance = context.get(name)
+        if instance:
+            print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=5)
+            print(f"Screenshot for {name} taken: {success}")
+        else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 7 - screenshot after program start")
-def build7_screenshot_all(context):
+@register_buildtest("Build 6 - screenshot after program start")
+def build6_screenshot_both(context):
     log = []
     time.sleep(30) #replace with some OCR logic or something
-    ip232relayserver.reset_client_stats() #clear logs once we know all 4 are running now
-    for name in ["vice1", "vice2", "vice3", "vice4"]:
-        try:
-            instance = context.get(name)
-            if instance:
-                print(f"{name} window_id: {instance.window_id}")
-                success = instance.take_screenshot(test_step=6)
-                print(f"Screenshot for {name} taken: {success}")
-        except:
+    for name in ["vice1"]:
+        instance = context.get(name)
+        if instance:
+            print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=6)
+            print(f"Screenshot for {name} taken: {success}")
+        else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
@@ -195,8 +169,8 @@ def build7_screenshot_all(context):
 @register_buildtest("Build 8 - terminate all")
 def build8_stopallvice(context):
     log = []
-    print("waiting 15s before teardown")
-    time.sleep(15)
+    print("waiting 3s before teardown")
+    time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")
@@ -204,9 +178,7 @@ def build8_stopallvice(context):
             log.append(f"{name} has exited.")
     if not log:
         log.append("No VICE instances found to stop.")
-
     return True, "\n".join(log)
-
 
 
 @register_buildtest("Build 9 - terminate relay & collect logs")
@@ -217,9 +189,8 @@ def build9_stoprelay(context):
     with relay_lock:
         relay_info = context.get(name)
         if relay_info and relay_info.get("started"):
-            from ip232relayserver import stop_server
             thread = relay_info.get("thread")
-            logs = stop_server()  # this returns the per-client log lines
+            logs = ip232relayserver.stop_server()  # this returns the per-client log lines
             if thread:
                 thread.join(timeout=5)
             relay_info["started"] = False

@@ -25,6 +25,10 @@
 unsigned char seen_chars[MAX_SEEN_CHARS];
 unsigned char seen_count = 0;
 
+    static unsigned char flash_color_index = 0;
+    static unsigned char flash_colors[2] = { COLOR_RED, COLOR_BLUE };
+
+
 unsigned char colors[6] = {
     COLOR_WHITE, COLOR_RED, COLOR_YELLOW,
     COLOR_CYAN, COLOR_BLACK, COLOR_GREEN
@@ -164,7 +168,7 @@ int main(void) {
             sprintf(char_info, "Char: $%02X (%c)    ", rx_char, rx_char);
             draw_fixed_text(22, 2, char_info, COLOR_WHITE);
 
-            if (rx_char == 0xA3 || rx_char == 0x5C) {
+            if (rx_char == 0x1C) {
                 continue;
             }
 
@@ -209,10 +213,23 @@ int main(void) {
 
             draw_grid();
 
-            for (i = 0; i < 400; ++i);
+for (i = 0; i < 400; ++i) {
+    unsigned char flash_char = '*';
+    unsigned short flash_offset = 0; // top-left corner
+    static unsigned char flash_color_index = 0;
+    static unsigned char flash_colors[2] = { COLOR_RED, COLOR_BLUE };
+    unsigned char color = flash_colors[flash_color_index];
+
+    flash_color_index = (flash_color_index + 1) % 2;
+
+    *((unsigned char*)(CHAR_BASE + flash_offset)) = flash_char;
+    *((unsigned char*)(COLOR_BASE + flash_offset)) = color;
+}
+
+
 
             tx_ready = 1;
-            strcpy(status_rx, rx_ready ? "Full " : "Empty");
+            strcpy(status_rx, rx_ready ? "FFull " : "Empty");
             strcpy(status_tx, tx_ready ? "Ready" : "Busy ");
             draw_status_line(23, "RX: ", status_rx, rx_ready ? COLOR_RED : COLOR_GREEN);
             draw_status_line(24, "TX: ", status_tx, tx_ready ? COLOR_GREEN : COLOR_RED);

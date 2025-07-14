@@ -186,12 +186,8 @@ class ViceInstance:
     def start(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         env = os.environ.copy()
-        # env["SDL_VIDEODRIVER"] = "x11"  # tried this to help with an xrdp flicker issue
-        # env["SDL_RENDER_DRIVER"] = "software" # doesnt change anything
-
         if "DISPLAY" not in env:
             env["DISPLAY"] = ":10"
-
         if "XAUTHORITY" in os.environ:
             env["XAUTHORITY"] = os.environ["XAUTHORITY"]
 
@@ -230,6 +226,10 @@ class ViceInstance:
             if self.window_id:
                 break
 
+        if not self.window_id:
+            print(f"[{self.name}] Failed to get window ID, starting failed.")
+            return False  # Indicate failure here
+
         print(f"[{self.name}] Window ID: {self.window_id}")
 
         self.ready_event.set()
@@ -237,6 +237,9 @@ class ViceInstance:
         self.thread = threading.Thread(target=self._reader, name=f"{self.name}-stdout-reader")
         self.thread.daemon = True
         self.thread.start()
+
+        return True  # Indicate success
+
 
 
 
