@@ -74,7 +74,7 @@ def build1_cuberotate(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start cuberotate vice instance")
+@register_buildtest("Build 3 - start vic20 vice instance")
 def build3_launch_cuberotate(context):
     archtype = 'vic20'
     name, port = next_vice_instance(context)

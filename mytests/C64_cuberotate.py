@@ -17,7 +17,7 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="cuberotate2",
+    id="cuberotate",
     types=["build"],
     system="C64",
     platform="VICE",
@@ -62,8 +62,13 @@ def build1_cuberotate(context):
 
 @register_buildtest("Build 3 - start cuberotate vice instance")
 def build3_launch_cuberotate(context):
+    archtype = 'c64'
     name, port = next_vice_instance(context)
-    instance = ViceInstance(name, port, 'c64', disk_path="c64output/cuberotate/cuberotate.d64")
+    disk = "c64output/cuberotate/cuberotate.d64"
+    config = "vice_ip232_tx.cfg"
+    
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
+    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -93,30 +98,34 @@ def buil4_send_run(context):
 @register_buildtest("Build 5 - screenshot after boot command")
 def build5_screenshot_both(context):
     log = []
-    for name in ["vice1"]:
-        instance = context.get(name)
-        if instance:
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=5)
             print(f"Screenshot for {name} taken: {success}")
-        else:
-            print(f"No ViceInstance found for {name}")
+            log.append(f"Screenshot for {name} taken: {success}")
+    if not log:
+        print("No ViceInstances found in context")
+        log.append("No ViceInstances found in context")
     return True, "\n".join(log)
+
 
 
 @register_buildtest("Build 6 - screenshot after program start")
 def build6_screenshot_both(context):
     log = []
-    time.sleep(35) #replace with some OCR logic or something
-    for name in ["vice1"]:
-        instance = context.get(name)
-        if instance:
+    time.sleep(35)  # takes a long time to laod the program
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=6)
             print(f"Screenshot for {name} taken: {success}")
-        else:
-            print(f"No ViceInstance found for {name}")
+            log.append(f"Screenshot for {name} taken: {success}")
+    if not log:
+        print("No ViceInstances found in context")
+        log.append("No ViceInstances found in context")
     return True, "\n".join(log)
+
 
 
 
