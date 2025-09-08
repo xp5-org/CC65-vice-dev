@@ -20,7 +20,7 @@ register_testfile(
     id="RX + TX + IP232 Relay",
     types=["build"],
     system="C64",
-    platform="VICE",
+    platform="Message capture",
 )(sys.modules[__name__])
 
 
@@ -77,7 +77,7 @@ def build1_rxclient(context):
 
 @register_buildtest("build 2 - tx client")
 def build2_txclient(context):
-    src_dir = 'c64src/messagecapture'
+    src_dir = 'c64src/messagecapturesrc'
     out_dir = 'c64output/messagecapture_tx'
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, 'txtest.c')

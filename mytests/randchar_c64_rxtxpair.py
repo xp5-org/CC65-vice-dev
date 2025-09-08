@@ -17,7 +17,7 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="RX + TX + IP232 Relay",
+    id="randchar rx-tx pair",
     types=["build"],
     system="C64",
     platform="randchar",

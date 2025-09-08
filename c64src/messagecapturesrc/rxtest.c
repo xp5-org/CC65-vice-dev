@@ -101,7 +101,7 @@ int main(void) {
                         print_status("Received:", STATUS_LINE_Y);
                         {
                             unsigned int delay;
-                            for (delay = 0; delay < 50000; delay++) {}
+                            for (delay = 0; delay < 500; delay++) {}
                         }
                         print_status(recv_buffer, STATUS_LINE_Y);
 

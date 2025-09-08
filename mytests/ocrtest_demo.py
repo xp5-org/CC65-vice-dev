@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from helpers import register_testfile, register_buildtest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
+from vicehelpers import ocr_word_find
 import ip232relayserver
 VICE_IP = "127.0.0.1"
 
@@ -17,86 +18,67 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="randchar rx single",
+    id="ocrtest",
     types=["build"],
     system="C64",
-    platform="randchar",
+    platform="VICE",
 )(sys.modules[__name__])
 
 
 
 
 
-@register_buildtest("build 1 - rx client")
+@register_buildtest("build 1 - tx client")
 def build1_rxclient(context):
-    src_dir = 'c64src/randchardebug'
-    out_dir = 'c64output/randchardebug_rx'
+    src_dir = 'c64src/cuberotate'
+    out_dir = 'c64output/cuberotate'
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, 'rxtest.c')
-    asm_file = os.path.join(out_dir, 'rxtest.s')
-    obj_file = os.path.join(out_dir, 'rxtest.o')
-    prg_file = os.path.join(out_dir, 'rxtest.prg')
-    d64_file = os.path.join(out_dir, 'rxtest.d64')
+    source_file = os.path.join(src_dir, 'cuberotatemain.c')
+    asm_file = os.path.join(out_dir, 'cuberotatemain.s')
+    obj_file = os.path.join(out_dir, 'cuberotatemain.o')
+    prg_file = os.path.join(out_dir, 'cuberotatemain.prg')
+    d64_file = os.path.join(out_dir, 'cuberotate.d64')
 
     log = []
 
     success, out = compile_cc65(source_file, asm_file)
     log.append("Compile cc65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = assemble_ca65(asm_file, obj_file)
     log.append("Assemble ca65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = link_ld65(obj_file, prg_file)
     log.append("Link ld65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = create_blank_d64(d64_file)
     log.append("Create blank d64:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = format_and_copyd64(d64_file, prg_file)
     log.append("Format and copy to d64:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 2 - start relay server")
-def build2_launch_rx(context):
-    print("ip232relayserver loaded:", __file__)
-    print("Has start_server():", hasattr(ip232relayserver, 'start_server'))
-    global relay_started
-    log = []
-    name = "relay_server"
-    port = 6501
-
-    with relay_lock:
-        if not relay_started:
-            server_thread = threading.Thread(target=ip232relayserver.start_server, daemon=True)
-            server_thread.start()
-            relay_started = True
-            context[name] = {"thread": server_thread, "started": True}
-            log.append(f"{name} started on port {port}")
-        else:
-            log.append(f"{name} was already started")
-
-    return True, "\n".join(log)
-
-
-
-@register_buildtest("Build 3 - start RX vice instance")
+@register_buildtest("Build 3 - start cuberotate vice instance")
 def build3_launch_rx(context):
     name, port = next_vice_instance(context)
-    disk = "c64output/randchardebug_rx/rxtest.d64"
-    config = "vice_ip232_rx.cfg"
+    disk = "c64output/cuberotate/cuberotatemain.prg"
+    config = "vice_ip232_tx.cfg"
     
     instance = ViceInstance(name, port, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -121,39 +103,52 @@ def build3_launch_rx(context):
 
 
 
-
 @register_buildtest("Build 4 - send RUN")
 def buil4_send_run(context):
     log = []
-    for name in ["vice1", "vice2"]:
+    for name in ["vice1"]:
         try:
             success, output = send_vice_command(context, name, 'LOAD "*",8\n')
-            time.sleep(3)
-            success, output = send_vice_command(context, name, "RUN\n")
+            time.sleep(15)
+            success, output = send_vice_command(context, name, "RUUN\n")
+            time.sleep(5)
             log.append(f"Sent RUN to {name}:\n{output}")
         except Exception as e:
             log.append(f"Failed to send to {name}: {e}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after boot command")
+
+@register_buildtest("Build 5 - OCR screen")
 def build5_screenshot_both(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
+            searchphrase = "error"
+            success, ocr_text, attempts, ocrlog = ocr_word_find(
+                instance,
+                searchphrase,
+                timeout=10,
+                startx=0,
+                starty=0
+            )
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            if success:
+                print("error message found in C64 string")
+                context["abort"] = True
+            else:
+                print("didn't find error string, proceeding")
+            log.append(f"OCR attempts: {attempts}\nLog:\n{ocrlog}")
         else:
-            print(f"No ViceInstance found for {name}")
+            log.append(f"No instance found for {name}")
     return True, "\n".join(log)
+
 
 
 @register_buildtest("Build 6 - screenshot after program start")
 def build6_screenshot_both(context):
     log = []
-    time.sleep(30) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:

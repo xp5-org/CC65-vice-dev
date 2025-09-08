@@ -17,10 +17,10 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="fourscreen",
+    id="randchar 1tx 3rx",
     types=["build"],
     system="C64",
-    platform="Randchar",
+    platform="randchar",
 )(sys.modules[__name__])
 
 
@@ -148,7 +148,9 @@ def build3_launch_rx(context):
 
 @register_buildtest("Build 3 - start 3x RX vice instances")
 def build3_launch_4_rx(context):
-    disk = "cc65_rx_output/rxtest.d64"
+    ViceInstance.seen_window_ids.clear()
+    
+    disk = "c64output/randchardebug_rx/rxtest.d64"
     config = "vice_ip232_rx.cfg"
     log = []
 

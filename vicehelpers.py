@@ -4,10 +4,60 @@ import subprocess
 import socket
 import threading
 import signal
+import pytesseract
 from PIL import Image
+import cv2
+import numpy as np
+from pyzbar import pyzbar
 
 
 VICE_BASE_PORT = 65501
+assigned_window_ids = set()
+
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+
+
+
+
+def ascii_to_petscii_c128(ascii_str, addr_start=0x0287):
+    """Convert ASCII to PETSCII bytes for C128 native mode."""
+    petscii_bytes = []
+    for ch in ascii_str:
+        if 'a' <= ch <= 'z':
+            ch = ch.upper()
+        petscii_bytes.append(ord(ch))
+    addr_end = addr_start + len(petscii_bytes) - 1
+    byte_strs = ["{:02X}".format(b) for b in petscii_bytes]
+    cmd = "f {:04X} {:04X} {}".format(addr_start, addr_end, " ".join(byte_strs))
+    return cmd
+
+def send_c128_command(context, name, cmd_str):
+    
+    # Convert to petscii and write to keyboard buffer
+    petscii_cmd = ascii_to_petscii_c128(cmd_str + '\r')  # add carriage return
+    petscii_cmd = ascii_to_petscii_cmd(cmd_str + '\r')  # add carriage return
+    response1 = send_single_command(context, name, petscii_cmd)
+
+    # Trigger the keyboard buffer: write length to $00C6
+    trigger_cmd = "f 00C6 00C6 {:02X}".format(len(cmd_str) + 1)
+    response2 = send_single_command(context, name, trigger_cmd)
+    
+    return "\n".join([response1, response2])
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -30,9 +80,6 @@ def ascii_to_petscii_cmd(ascii_str, addr_start=0x0277):
     cmd = "f {:04X} {:04X} {}".format(addr_start, addr_end, " ".join(byte_strs))
     return cmd
 
-
-
-
 def wait_for_port(host, port, timeout=10):
     start = time.time()
     while time.time() - start < timeout:
@@ -42,10 +89,6 @@ def wait_for_port(host, port, timeout=10):
         except:
             time.sleep(0.1)
     return False
-
-
-
-
 
 def send_single_command(context, name, cmd_str):
     if not isinstance(cmd_str, str):
@@ -69,11 +112,6 @@ def send_single_command(context, name, cmd_str):
         print(f"VICE '{name}' response:\n", response.decode(errors='ignore'))
         return response.decode(errors='ignore')
 
-
-
-
-
-
 def send_vice_command(context, name, string):
     string = string.replace('\n', '\r')
     i = 0
@@ -93,14 +131,6 @@ def send_vice_command(context, name, string):
 
     return True, "\n".join(log)
 
-
-
-
-
-
-
-
-
 def next_vice_instance(context):
     if "_vice_count" not in context:
         context["_vice_count"] = 0
@@ -112,13 +142,6 @@ def next_vice_instance(context):
     port = VICE_BASE_PORT + index
 
     return name, port
-
-
-
-
-
-
-assigned_window_ids = set()
 
 def find_window_id_by_pid(pid):
     try:
@@ -137,20 +160,34 @@ def find_window_id_by_pid(pid):
 
 
 
+# wrapper for putting logging around class start method
+def launch_vice_instance(instance, boot_delay=3):
+    log = []
+    log.append(f"Launching {instance.name} on port {instance.port} with disk={instance.disk_path}")
+    
+    if not instance.start():
+        log.append(f"{instance.name} failed to start (no window ID detected).")
+        return False, log
 
+    time.sleep(boot_delay)
 
+    if not instance.wait_for_ready():
+        log.append(f"{instance.name} did not become ready on port {instance.port}")
+        log.append(f"{instance.name} stdout:\n{''.join(instance.get_output())}")
+        return False, log
 
-
-
-
+    log.append(f"{instance.name} is ready")
+    log.append(f"{instance.name} stdout:\n{''.join(instance.get_output())}")
+    return True, log
 
 
 
 class ViceInstance:
-    def __init__(self, name, port, config_path=None, disk_path=None, rom_path=None):
+    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.name = name
         self.port = port
+        self.archtype = archtype
         self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
         self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
         self.window_id = None
@@ -184,6 +221,7 @@ class ViceInstance:
         self.proc.wait()
 
     def start(self):
+        ViceInstance.seen_window_ids.clear()
         base_dir = os.path.dirname(os.path.abspath(__file__))
         env = os.environ.copy()
         if "DISPLAY" not in env:
@@ -191,7 +229,14 @@ class ViceInstance:
         if "XAUTHORITY" in os.environ:
             env["XAUTHORITY"] = os.environ["XAUTHORITY"]
 
-        cmd = ["x64"]
+        if self.archtype == 'c64':
+            cmd = ["x64"]
+        elif self.archtype == 'c128':
+            cmd = ["x128"]
+        elif self.archtype == 'vic20':
+            cmd = ["xvic"]
+        else:
+            raise ValueError(f"Unsupported archtype: {self.archtype}")
 
         if self.config_path:
             config_full_path = os.path.abspath(os.path.join(base_dir, self.config_path))
@@ -204,7 +249,7 @@ class ViceInstance:
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
 
-        print("Starting x64 with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
+        print("Starting with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
 
         self.proc = subprocess.Popen(
             cmd,
@@ -321,10 +366,6 @@ class ViceInstance:
         return None
 
 
-
-
-
-
 def croptheimage(image_path):
     try:
         img = Image.open(image_path)
@@ -339,26 +380,81 @@ def croptheimage(image_path):
         print(f"Failed to crop image {image_path}: {e}")
         return False
 
+def ocr_word_find(instance, phrase, timeout=10, startx=None, starty=None, stopx=None, stopy=None, errorphrase=None):
+    ocrlogdir = os.path.join(base_dir, "compile_logs")
+    os.makedirs(ocrlogdir, exist_ok=True)
+    print("OCR basedir var: base_dir ", ocrlogdir)
+    print("OCR temp dir: ", ocrlogdir)
+    log = []
+
+    start_time = time.time()
+    phrase_lower = phrase.lower()
+    error_lower = errorphrase.lower() if errorphrase else None
+    attempts = 0
+    text = ""
 
 
+    for i in range(timeout):
+        attempts += 1
+        iter_start = time.time()
 
+        elapsed = int(iter_start - start_time)
+        safe_phrase = phrase.replace(" ", "_")
+        filename_base = f"{safe_phrase}_{elapsed}"
+        screenshot_path = os.path.join(ocrlogdir, filename_base)
 
+        png_path = screenshot_path + ".png"
+        print("taking screenshot at path: ", png_path)
+        txt_path = screenshot_path + ".txt"
 
+        ok, msg = instance.take_screenshot(screenshot_path)
+        print(f'OCR Screenshot Path: {screenshot_path}')
+        if not ok:
+            log.append(f"Screenshot failed: {msg}")
+            continue
 
+        try:
+            print('processing screenshot OCR...')
+            crop_start = time.time()
 
+            img = Image.open(png_path)
+            if None not in (startx, starty, stopx, stopy):
+                img = img.crop((startx, starty, stopx, stopy))
 
+            crop_duration = time.time() - crop_start
+            log.append(f"Crop completed in {crop_duration:.2f} seconds")
 
+            ocr_start = time.time()
+            text = pytesseract.image_to_string(img)
+            ocr_duration = time.time() - ocr_start
+            log.append(f"OCR completed in {ocr_duration:.2f} seconds")
 
+        except Exception as e:
+            log.append(f"OCR failed on {png_path}: {e}")
+            text = ""
+
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+        iter_total = time.time() - iter_start
+        log.append(f"Total time this pass: {iter_total:.2f} seconds\n")
+
+        text_lower = text.lower()
+
+        if phrase_lower in text_lower:
+            return True, text, attempts, log
+        if error_lower and error_lower in text_lower:
+            log.append(f"Aborted early due to error phrase: '{errorphrase}' found in OCR text.")
+            return False, text, attempts, log
+
+        time.sleep(2)
+
+    return False, text, attempts, log
 
 
 
 # CC65 disk stuff #
-
-
-
-base_dir = os.path.dirname(os.path.abspath(__file__))
-
-def compile_cc65(source_file, output_file):
+def compile_cc65(source_file, output_file, archtype):
     source_path = os.path.join(base_dir, source_file)
     output_path = os.path.join(base_dir, output_file)
     output_dir = os.path.dirname(output_path)
@@ -369,12 +465,12 @@ def compile_cc65(source_file, output_file):
     if not os.path.exists(source_path):
         return False, f"Source file not found: {source_path}"
 
-    cmd = ['cc65', '-O', '-t', 'c64', '-o', output_path, source_path]
+    cmd = ['cc65', '-O', '-t', archtype, '-o', output_path, source_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
-def assemble_ca65(asm_file, obj_file):
+def assemble_ca65(asm_file, obj_file, archtype):
     asm_path = os.path.join(base_dir, asm_file)
     obj_path = os.path.join(base_dir, obj_file)
     
@@ -382,25 +478,33 @@ def assemble_ca65(asm_file, obj_file):
     if not os.path.exists(asm_path):
         return False, f"Assembly file not found: {asm_path}"
 
-    cmd = ['ca65', '-t', 'c64', '-o', obj_path, asm_path]
+    cmd = ['ca65', '-t', archtype, '-o', obj_path, asm_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
-def link_ld65(obj_file, output_file, library='c64.lib'):
+def link_ld65(obj_file, output_file, archtype):
     obj_path = os.path.join(base_dir, obj_file)
     output_path = os.path.join(base_dir, output_file)
 
     if not os.path.exists(obj_path):
         return False, f"Object file not found: {obj_path}"
 
-    # Don't prepend base_dir to library, let ld65 find it
-    cmd = ['ld65', '-o', output_path, '-t', 'c64', obj_path, library]
+    if archtype == 'c64':
+        library = 'c64.lib'
+        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
+    elif archtype == 'vic20':
+        library = 'vic20.lib'
+        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
+    elif archtype == 'c128':
+        library = 'c128.lib'
+        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
+    else:
+        return False, f"Unsupported architecture type: {archtype}"
+
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
-
-
 
 def create_blank_d64(d64_name, base_dir=base_dir):
     d64_path = os.path.join(base_dir, d64_name)
@@ -413,7 +517,8 @@ def create_blank_d64(d64_name, base_dir=base_dir):
         return False, f"Failed to create empty d64: {e}"
 
     cmd = ['c1541', '-attach', d64_path, '-format', 'EMPTY,08']
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.run(cmd, cwd=base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
     success = proc.returncode == 0
     return success, proc.stdout
 
@@ -425,6 +530,65 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
         return False, f"PRG file not found: {prg_path}"
 
     cmd = ['c1541', '-attach', d64_path, '-write', prg_path]
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.run(cmd, cwd=base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
+
+C64_COLORS = {
+    # these are set to a specific VICE color profile
+    # CRT filters etc will change these
+    'black':    ((0, 0, 0), (40, 40, 40)),
+    'white':    ((200, 200, 200), (255, 255, 255)),
+    'red':      ((150, 0, 0), (255, 80, 80)),
+    'cyan':     ((0, 150, 150), (80, 255, 255)),
+    'purple':   ((150, 0, 150), (255, 80, 255)),
+    'green':    ((0, 150, 0), (80, 255, 80)),
+    'blue':     ((0, 0, 150), (80, 80, 255)),
+    'yellow':   ((150, 150, 0), (255, 255, 80)),
+    'orange':   ((200, 80, 0), (255, 150, 80)),
+    'brown':    ((100, 50, 0), (160, 110, 50)),
+    'lightred': ((255, 100, 100), (255, 170, 170)),
+    'gray':     ((80, 80, 80), (160, 160, 160)),
+} 
+
+def qrdecode(imagepath, mode='one'):
+    # Load image in BGR then convert to RGB
+    image_bgr = cv2.imread(imagepath)
+    if image_bgr is None:
+        raise ValueError("Image not found or unable to read.")
+    image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+    results = {}
+
+    if mode == 'one':
+        # Decode whole image for single QR code
+        decoded_objects = pyzbar.decode(image)
+        if decoded_objects:
+            # Put first found code in 'default' key
+            results['default'] = decoded_objects[0].data.decode('utf-8')
+        else:
+            results['default'] = None
+        return results
+
+    elif mode == 'many':
+        # Process each C64 color range separately
+        for color_name, (lower_rgb, upper_rgb) in C64_COLORS.items():
+            lower = np.array(lower_rgb, dtype=np.uint8)
+            upper = np.array(upper_rgb, dtype=np.uint8)
+            # Create a mask selecting pixels within the color range
+            mask = cv2.inRange(image, lower, upper)
+            # Optional: use mask to extract color region
+            masked_img = cv2.bitwise_and(image, image, mask=mask)
+            # Decode QR codes in this masked region
+            decoded_objects = pyzbar.decode(masked_img)
+            # Collect all decoded strings for this color
+            decoded_strings = [obj.data.decode('utf-8') for obj in decoded_objects]
+            if decoded_strings:
+                results[color_name] = decoded_strings
+            else:
+                results[color_name] = []
+
+        return results
+
+    else:
+        raise ValueError("Mode must be 'one' or 'many'")

@@ -56,7 +56,7 @@ class IP232Server:
 
         self.rx_symbols = 0
         self.tx_symbols = 0
-        self.name = None
+        self.name = None  # You can set this later with the ViceInstance name if available
 
 
     def send_control(self, cmd, val=0):
@@ -173,7 +173,9 @@ def client_thread(conn, addr, name):
         print(f"Connection error from {addr}: {e}")
 
     server.close()
-
+    #with IP232Server.clients_lock:
+        #if server in IP232Server.clients:
+            #IP232Server.clients.remove(server)
 
 import struct
 def start_server(host=HOST, port=PORT):
@@ -185,9 +187,10 @@ def start_server(host=HOST, port=PORT):
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
+    # Enable SO_REUSEADDR to allow binding to a recently-used port
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+    # Set SO_LINGER to send RST on close (no lingering)
     linger_struct = struct.pack('ii', 1, 0)  # l_onoff=1, l_linger=0
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger_struct)
     server_socket.bind((host, port))
@@ -227,6 +230,7 @@ def stop_server():
     global server_socket, accept_thread
     logs = []
 
+    # Close all client connections and clear client list
     with IP232Server.clients_lock:
         logs.append(f"number of clients: {len(IP232Server.clients)}")
         for idx, client in enumerate(IP232Server.clients):
@@ -238,6 +242,7 @@ def stop_server():
         IP232Server.clients.clear()
 
     if server_running.is_set():
+        # Close server socket first so accept() unblocks
         try:
             print("server socket closed")
             server_socket.close()
@@ -252,7 +257,8 @@ def stop_server():
             accept_thread.join(timeout=5)
             logs.append("accept thread terminated")
 
-    time.sleep(0.5)
+    # Small delay to allow OS to fully release the socket
+    time.sleep(0.2)
 
     return logs
 

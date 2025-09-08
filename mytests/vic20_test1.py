@@ -17,88 +17,71 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="randchar rx single",
+    id="vic20text test",
     types=["build"],
-    system="C64",
-    platform="randchar",
+    system="vic20",
+    platform="VICE",
 )(sys.modules[__name__])
 
 
 
 
 
-@register_buildtest("build 1 - rx client")
-def build1_rxclient(context):
-    src_dir = 'c64src/randchardebug'
-    out_dir = 'c64output/randchardebug_rx'
+@register_buildtest("build 1 - testprog")
+def build1_cuberotate(context):
+    archtype = 'vic20'
+    src_dir = 'vic20src/testprog'
+    out_dir = 'vic20output/testprog'
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, 'rxtest.c')
-    asm_file = os.path.join(out_dir, 'rxtest.s')
-    obj_file = os.path.join(out_dir, 'rxtest.o')
-    prg_file = os.path.join(out_dir, 'rxtest.prg')
-    d64_file = os.path.join(out_dir, 'rxtest.d64')
+    source_file = os.path.join(src_dir, 'testprog.c')
+    asm_file = os.path.join(out_dir, 'testprog.s')
+    obj_file = os.path.join(out_dir, 'testprog.o')
+    prg_file = os.path.join(out_dir, 'testprog.prg')
+    d64_file = os.path.join(out_dir, 'testprog.d64')
 
     log = []
 
-    success, out = compile_cc65(source_file, asm_file)
+    success, out = compile_cc65(source_file, asm_file, archtype)
     log.append("Compile cc65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
-    success, out = assemble_ca65(asm_file, obj_file)
+    success, out = assemble_ca65(asm_file, obj_file, archtype)
     log.append("Assemble ca65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
-    success, out = link_ld65(obj_file, prg_file)
+    success, out = link_ld65(obj_file, prg_file, archtype)
     log.append("Link ld65:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = create_blank_d64(d64_file)
     log.append("Create blank d64:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     success, out = format_and_copyd64(d64_file, prg_file)
     log.append("Format and copy to d64:\n" + out)
     if not success:
+        context["abort"] = True
         return False, "\n".join(log)
 
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 2 - start relay server")
-def build2_launch_rx(context):
-    print("ip232relayserver loaded:", __file__)
-    print("Has start_server():", hasattr(ip232relayserver, 'start_server'))
-    global relay_started
-    log = []
-    name = "relay_server"
-    port = 6501
-
-    with relay_lock:
-        if not relay_started:
-            server_thread = threading.Thread(target=ip232relayserver.start_server, daemon=True)
-            server_thread.start()
-            relay_started = True
-            context[name] = {"thread": server_thread, "started": True}
-            log.append(f"{name} started on port {port}")
-        else:
-            log.append(f"{name} was already started")
-
-    return True, "\n".join(log)
-
-
-
-@register_buildtest("Build 3 - start RX vice instance")
-def build3_launch_rx(context):
+@register_buildtest("Build 3 - start cuberotate vice instance")
+def build3_launch_cuberotate(context):
+    archtype = 'vic20'
     name, port = next_vice_instance(context)
-    disk = "c64output/randchardebug_rx/rxtest.d64"
-    config = "vice_ip232_rx.cfg"
+    disk = "vic20output/testprog/testprog.d64"
+    config = "vice_ip232_tx.cfg"
     
-    instance = ViceInstance(name, port, config_path=config, disk_path=disk)
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
 
     started = instance.start()
@@ -121,11 +104,10 @@ def build3_launch_rx(context):
 
 
 
-
 @register_buildtest("Build 4 - send RUN")
 def buil4_send_run(context):
     log = []
-    for name in ["vice1", "vice2"]:
+    for name in ["vice1"]:
         try:
             success, output = send_vice_command(context, name, 'LOAD "*",8\n')
             time.sleep(3)
@@ -153,7 +135,7 @@ def build5_screenshot_both(context):
 @register_buildtest("Build 6 - screenshot after program start")
 def build6_screenshot_both(context):
     log = []
-    time.sleep(30) #replace with some OCR logic or something
+    time.sleep(35) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
