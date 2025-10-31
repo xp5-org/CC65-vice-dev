@@ -29,6 +29,7 @@ RUN apt-get update && \
         git \
         vim \
         python3-venv \
+        libzbar0 \
         # for vice & c1541 tool
         linux-headers-generic \
         libusb-1.0 pkg-config ncurses-dev \
@@ -100,7 +101,7 @@ RUN wget -O /tmp/vice-3.8.tar.gz "https://sourceforge.net/projects/vice-emu/file
 
 WORKDIR /root
 
-# build cc65
+# build cc65 , not needed can get it from apt-get
 #RUN git clone https://github.com/cc65/cc65.git && \
 #    cd cc65 && \
 #    make && \

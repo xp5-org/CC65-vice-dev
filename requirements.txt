@@ -2,3 +2,5 @@ flask
 BeautifulSoup4
 pillow
 pytesseract
+opencv-python
+pyzbar
