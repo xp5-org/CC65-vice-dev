@@ -23,7 +23,9 @@ The current demo is of multiple C64 RX & TX instances using the ACIA RS232 featu
 <br>
 
 ## Setup and use
-I built this with docker in mind. I have a linux host (can be a virtual machine) with SMB, NFS avaialable so that the dirs/files inside of the cc65-vice-dev container can be accessed from another computer
+I built this with docker in mind. I have a linux host (can be a virtual machine) with SMB, NFS available so that the dirs/files inside of the cc65-vice-dev container can be accessed from another computer
+
+docker isnt needed to use this, can clone the git repo, set up your venv and run pip against requirements.txt and start it locally. 
 
 i have the dir ```/bigpool/data/code_projects/``` shared out, and navigated here , downloaded the GIT link, built the docker image, and ran the container from here
 ```
