@@ -1,6 +1,6 @@
 <h1 align="center">Vice & CC65 build and test automation</h1>
 
-This is built off the QEMU automation framework
+This is built off my [Python QEMU automation](https://github.com/xp5-org/flask-qemu-automation) for DOS/i386 testing. 
 It's also a Dockerfile of ubuntu:25.04 with XRDP, VICE, CC65, and OpenCBM built
 
 The current demo is of multiple C64 RX & TX instances using the ACIA RS232 feature in the VICE emulator, with an IP232 relay server as the backend.
