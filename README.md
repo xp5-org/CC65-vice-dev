@@ -22,8 +22,54 @@ The current demo is of multiple C64 RX & TX instances using the ACIA RS232 featu
 
 <br>
 
+## Setup and use
+I built this with docker in mind. I have a linux host (can be a virtual machine) with SMB, NFS avaialable so that the dirs/files inside of the cc65-vice-dev container can be accessed from another computer
+
+i have the dir ```/bigpool/data/code_projects/``` shared out, and navigated here , downloaded the GIT link, built the docker image, and ran the container from here
+```
+$ cd /bigpool/data/code_projects/
+$ cd CC65-vice-dev
+$ git clone https://github.com/xp5-org/CC65-vice-dev.git
+$ docker build -t cc65vicedev ./
+[+] Building 251.6s (18/18) FINISHED
+
+$ docker image ls
+REPOSITORY                        TAG       IMAGE ID       CREATED          SIZE
+cc65vicedev                       latest    4fa1328959a2   46 seconds ago   1.89GB
+```
+
+once the image is built, run the container
+
+-v can be omitted if you dont need to make the testrunnerapp visible outside of the container, but it will make code-edits and file copying more challenging without it
+
+```
+$ docker run -it -d \
+  -p 3389:3389 \
+  -p 8088:8080 \
+  -e USERPASSWORD=a \
+  -e USERNAME=user \
+  -v /bigpool/data/code_projects/CC65-vice-dev:/testrunnerapp \
+  cc65vicedev
+```
+
+it takes some time to set up & start - so if xrdp rejects right away check docker logs or try again in a minute
 
 
+<img width="1614" height="707" alt="image" src="https://github.com/user-attachments/assets/d34e71f0-971f-49f8-b25c-532e0ef9f39e" />
+
+| RDP connect | Manually starting the app |
+|---------|---------|
+| ![Image 1](https://github.com/user-attachments/assets/f5e9780a-89b8-4769-88bb-52c9dce4a048) | ![Image 2](https://github.com/user-attachments/assets/04ec44c2-d061-41ab-bc65-f347746019a6) |
+
+<br>
+
+| Connecting to the app with a web browser from any computer |
+|------------------------------------------------------------|
+| <img src="https://github.com/user-attachments/assets/50e28150-18d9-406a-9e9d-b0408d39cdc0" width="600"> |
+
+<br>
+
+<br>
 
   ## Rx & Tx single pair demo
 it uses python to connect to the vice remote monitor and send key codes to memory remotely
