@@ -28,7 +28,7 @@ echo "debug1"
 mkdir -p /home/$USERNAME/Desktop/
 cat <<EOF > /home/$USERNAME/Desktop/runme.sh
 #!/bin/bash
-xfce4-terminal --hold --command="bash -c '. /opt/venv/bin/activate && python3 /testrunnerapp/app.py'"
+xfce4-terminal --hold --command="bash -c 'source /opt/venv/bin/activate && python3 /testrunnerapp/app.py'"
 EOF
 
 echo "debug2"
@@ -45,13 +45,27 @@ sudo chown -R $USERNAME:user /home/user
 
 echo "debug3"
 
-# Start and stop scripts
+
+# start xorg as user
+sudo -u "$USERNAME" Xorg :10 -noreset -nolisten tcp -ac &
+
+# wait for x to be avail
+while [ ! -e /tmp/.X11-unix/X10 ]; do sleep 1; done
+chown "$USERNAME":"$USERNAME" /tmp/.X11-unix/X10
+
+# start xfce as user 
+DISPLAY=:10 xhost +SI:localuser:"$USERNAME"
+su - "$USERNAME" -c "export DISPLAY=:10; startxfce4 &"
+
+# wait for xfce to start
+sleep 3
+
+# start python test runner in background of users xorg session
+su - "$USERNAME" -c 'export DISPLAY=:10; xfce4-terminal --hold --command="bash -c '\''source /opt/venv/bin/activate && python3 /testrunnerapp/app.py'\''" &'
+
+# start xrdp service
 echo -e "starting xrdp services...\n"
 trap "pkill -f xrdp" SIGKILL SIGTERM SIGHUP SIGINT EXIT
-
-echo "debug4"
-
-# start xrdp desktop
 rm -rf /var/run/xrdp*.pid
-rm -rf /var/run/xrdp/xrdp*.pid
-xrdp-sesman && exec xrdp -n
+xrdp-sesman
+exec xrdp -n

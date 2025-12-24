@@ -259,7 +259,6 @@ class ViceInstance:
             bufsize=1,
             env=env
         )
-
         # need to wait for window to be active, may need more time on a slower system
         time.sleep(1)
 
@@ -483,28 +482,37 @@ def assemble_ca65(asm_file, obj_file, archtype):
     success = proc.returncode == 0
     return success, proc.stdout
 
+
 def link_ld65(obj_file, output_file, archtype):
-    obj_path = os.path.join(base_dir, obj_file)
+    if isinstance(obj_file, (list, tuple)):
+        obj_files = obj_file
+    else:
+        obj_files = [obj_file]
+
+    obj_paths = [os.path.join(base_dir, f) for f in obj_files]
     output_path = os.path.join(base_dir, output_file)
 
-    if not os.path.exists(obj_path):
-        return False, f"Object file not found: {obj_path}"
+    for p in obj_paths:
+        if not os.path.exists(p):
+            return False, f"Object file not found: {p}"
 
     if archtype == 'c64':
         library = 'c64.lib'
-        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
     elif archtype == 'vic20':
         library = 'vic20.lib'
-        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
     elif archtype == 'c128':
         library = 'c128.lib'
-        cmd = ['ld65', '-o', output_path, '-t', archtype, obj_path, library]
     else:
         return False, f"Unsupported architecture type: {archtype}"
+
+    cmd = ['ld65', '-o', output_path, '-t', archtype]
+    cmd.extend(obj_paths)
+    cmd.append(library)
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
+
 
 def create_blank_d64(d64_name, base_dir=base_dir):
     d64_path = os.path.join(base_dir, d64_name)
@@ -592,3 +600,26 @@ def qrdecode(imagepath, mode='one'):
 
     else:
         raise ValueError("Mode must be 'one' or 'many'")
+    
+
+
+def assemble_object(ser_file, s_file, label, base_dir=base_dir):
+    ser_file = os.path.abspath(os.path.join(base_dir, ser_file))
+    s_file   = os.path.abspath(os.path.join(base_dir, s_file))
+
+    cmd = [
+        "co65",
+        "--code-label",
+        label,
+        ser_file
+    ]
+    subprocess.check_call(cmd)
+
+    # co65 outputs .s next to .ser by default; rename to desired location
+    generated_s = os.path.splitext(ser_file)[0] + ".s"
+    if generated_s != s_file:
+        os.rename(generated_s, s_file)
+
+    return True, s_file
+
+

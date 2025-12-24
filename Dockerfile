@@ -17,6 +17,7 @@ RUN apt-get update && \
         xfce4-xkb-plugin \
         xorgxrdp \
         xrdp \
+        xvfb \
         sudo \
         wget \
         bzip2 \
@@ -24,6 +25,7 @@ RUN apt-get update && \
         python3-pip \
         python3-venv \
         build-essential \
+        supervisor \
         # xterm for runme.sh debug
         xterm \
         git \
@@ -34,16 +36,16 @@ RUN apt-get update && \
         linux-headers-generic \
         libusb-1.0 pkg-config ncurses-dev \
         cc65 \
-        vice xdotool imagemagick && \
+        vice xdotool imagemagick
         # for vice make
         #build-essential flex bison \
         #libgtk-3-dev libreadline-dev libpng-dev \
         #libasound2-dev libsdl2-dev \
         #libxrandr-dev libxinerama-dev libxi-dev libglew-dev \
         #wget tar dos2unix libcurl4-openssl-dev file && \
-    apt-get remove -y light-locker xscreensaver && \
-    apt-get autoremove -y && \
-    rm -rf /var/cache/apt /var/lib/apt/lists/*
+ #   apt-get remove -y light-locker xscreensaver && \
+ #   apt-get autoremove -y && \
+ #   rm -rf /var/cache/apt /var/lib/apt/lists/*
 
 # install Firefox
 RUN wget -O /tmp/firefox.tar.bz2 "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" --no-check-certificate && \
@@ -132,5 +134,12 @@ RUN python3 -m venv /opt/venv && \
     find /opt/venv -type d -exec chmod g+s {} \;
 ENV VENV_PATH=/opt/venv
 
+# set up supervisord to run flask app
+COPY services.conf /etc/supervisor/conf.d/services.conf
+RUN mkdir -p /var/log && touch /var/log/flaskapp.out.log /var/log/flaskapp.err.log
+
+RUN apt-get install -y netcat-openbsd freerdp2-x11
+
+# need at least these 2 ports
 EXPOSE 3389 8080
 ENTRYPOINT ["/app/entrypoint.sh"]
