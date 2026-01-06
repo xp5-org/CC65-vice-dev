@@ -6,7 +6,10 @@ import test_runner
 import threading
 import helpers
 from flask import jsonify
-
+import importlib
+import pkgutil
+import mytests
+from collections import defaultdict
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -19,7 +22,6 @@ play_REPORT_DIR = REPORT_DIR
 @app.route('/favicon.ico')
 def favicon():
     return app.send_static_file('favicon.ico')
-
 
 
 def get_report_summaries():
@@ -72,17 +74,8 @@ def get_report_summaries():
     return summaries
 
 
-
-
-
-
 @app.route("/testfile_list")
 def testfile_list():
-    import importlib
-    import pkgutil
-    import mytests
-    from collections import defaultdict
-
     for _, modname, _ in pkgutil.iter_modules(mytests.__path__):
         importlib.import_module(f"mytests.{modname}")
 
@@ -119,12 +112,6 @@ def testfile_list():
 
     print("Returning testfile list:", result)  # debug print
     return jsonify(result)
-
-
-
-
-
-
 
 
 def get_latest_report_summary():
@@ -182,11 +169,6 @@ def index():
     return render_template("index.html", summaries=summaries, latest_summary=latest_summary)
 
 
-
-
-
-
-
 @app.route("/run/<testname>")
 def run_named_tests(testname):
     print(f"run {testname} called")
@@ -206,7 +188,6 @@ def run_named_tests(testname):
     return "Started"
 
 
-
 @app.route("/progress")
 def progress():
     try:
@@ -222,7 +203,6 @@ def progress():
             })
     except FileNotFoundError:
         return jsonify({"step": "Done", "test_name": ""})
-
 
 
 @app.route("/reports/<path:filepath>")

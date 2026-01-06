@@ -88,7 +88,7 @@ def build4_launch_rx(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = "c64output/randchar_rx/randchar_rx.d64"
-    config = "vice_ip232_rx.cfg"
+    config = "c64src/randchar_rx/vice_ip232_rx.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]

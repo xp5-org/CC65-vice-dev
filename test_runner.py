@@ -8,6 +8,7 @@ import helpers
 import datetime
 import importlib
 import sys
+from collections import defaultdict
 
 
 
@@ -24,11 +25,6 @@ context = {
     "abort": False
 }
 
-
-
-
-
-
 def reload_tests():
     helpers.clear_registries()
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,8 +36,6 @@ def reload_tests():
                 importlib.reload(sys.modules[modname])
             else:
                 __import__(modname)
-
-
 
 
 def run_testfile(module_name):
@@ -95,10 +89,6 @@ def run_testfile(module_name):
     return results
 
 
-
-
-
-
 def run_registered_test(name, registry, context):
     for test_func in registry:
         if test_func.test_description == name:
@@ -122,7 +112,6 @@ def run_registered_test(name, registry, context):
                 duration = 0.0
             return (name, status, color, log_output, stdout_output, duration)
     return (name, "NOT FOUND", "gray", "No matching test found", "", 0.0)
-
 
 
 def run_tests(test_descriptions, registry, context):
@@ -155,15 +144,7 @@ def run_tests(test_descriptions, registry, context):
     return results
 
 
-
-
-
 def generate_report(results, report_path):
-    from collections import defaultdict
-    import re
-    import shutil
-    import os
-
     subdir_path = os.path.dirname(report_path)
     print(f"Creating directory: '{subdir_path}'")
     if subdir_path and not os.path.exists(subdir_path):
@@ -174,7 +155,7 @@ def generate_report(results, report_path):
         for filename in os.listdir(compile_logs_dir):
             shutil.move(os.path.join(compile_logs_dir, filename), subdir_path)
 
-    # Move images from REPORT_DIR into subdir (including screenshots)
+    # Move screenshots from REPORT_DIR into subdir
     for filename in os.listdir(REPORT_DIR):
         if (re.match(r"test\d+\.(png|ppm|gif)$", filename) or
             filename.startswith("screenshot-")):
@@ -194,54 +175,54 @@ def generate_report(results, report_path):
     # Write HTML report
     with open(report_path, "w") as f:
         f.write("""<html>
-<head>
-<title>Test Report</title>
-<style>
-body { font-family: sans-serif; }
-table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-.green { background-color: #c8f7c5; }
-.red { background-color: #f7c5c5; }
-.gray { background-color: #eeeeee; }
+    <head>
+    <title>Test Report</title>
+    <style>
+    body { font-family: sans-serif; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .green { background-color: #c8f7c5; }
+    .red { background-color: #f7c5c5; }
+    .gray { background-color: #eeeeee; }
 
-.flex-container {
-    display: flex;
-    gap: 20px;
-    flex-wrap: nowrap;
-    max-width: 100%;
-}
+    .flex-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: nowrap;
+        max-width: 100%;
+    }
 
-.output-column {
-    flex: 1;
-    min-width: 0;
-    max-width: 50%;
-    overflow: hidden;
-    background-color: #f0f0f0;
-    padding: 10px;
-}
+    .output-column {
+        flex: 1;
+        min-width: 0;
+        max-width: 50%;
+        overflow: hidden;
+        background-color: #f0f0f0;
+        padding: 10px;
+    }
 
-.image-column {
-    flex: 1;
-    max-width: 50%;
-}
+    .image-column {
+        flex: 1;
+        max-width: 50%;
+    }
 
-pre {
-    background-color: #eee;
-    padding: 10px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    max-width: 100%;
-    overflow-x: auto;
-}
-hr { margin: 40px 0; }
-</style>
-</head>
-<body>
-<h1>Test Report</h1>
-<table>
-<tr><th>Test Name</th><th>Duration (s)</th><th>Result</th></tr>
-""")
+    pre {
+        background-color: #eee;
+        padding: 10px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+    hr { margin: 40px 0; }
+    </style>
+    </head>
+    <body>
+    <h1>Test Report</h1>
+    <table>
+    <tr><th>Test Name</th><th>Duration (s)</th><th>Result</th></tr>
+    """)
 
         # Summary table
         for name, status, color, _, _, duration in results:
@@ -261,22 +242,22 @@ hr { margin: 40px 0; }
                 img_tags = "<p>No screenshot available.</p>"
 
             f.write(f"""<hr>
-<div class="flex-container">
+    <div class="flex-container">
     <div class="output-column">
         <h3>{name}</h3>
         <p><strong>Duration:</strong> {duration:.2f} seconds</p>
         <pre>OUTPUT:
-{output}
+        {output}
 
-STDOUT:
-{stdout}</pre>
-    </div>
-    <div class="image-column">
-        <h4>Screenshot</h4>
-        {img_tags}
-    </div>
-</div>
-""")
+    STDOUT:
+    {stdout}</pre>
+        </div>
+        <div class="image-column">
+            <h4>Screenshot</h4>
+            {img_tags}
+        </div>
+        </div>
+        """)
 
         f.write("</body></html>")
 

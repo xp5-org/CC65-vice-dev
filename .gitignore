@@ -8,3 +8,8 @@
 /c64output
 /tmp
 /vic20output
+.coverage
+.coveragerc
+/vic20output
+/c64output
+/vic20output

@@ -17,10 +17,10 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="vic20text test",
+    id="vic20 text pattern",
     types=["build"],
     system="vic20",
-    platform="VICE",
+    platform="Graphics",
 )(sys.modules[__name__])
 
 
@@ -135,7 +135,7 @@ def build5_screenshot_both(context):
 @register_buildtest("Build 6 - screenshot after program start")
 def build6_screenshot_both(context):
     log = []
-    time.sleep(35) #replace with some OCR logic or something
+    time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
@@ -152,7 +152,7 @@ def build6_screenshot_both(context):
 def build8_stopallvice(context):
     log = []
     print("waiting 3s before teardown")
-    time.sleep(3)
+    time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")
@@ -160,25 +160,4 @@ def build8_stopallvice(context):
             log.append(f"{name} has exited.")
     if not log:
         log.append("No VICE instances found to stop.")
-    return True, "\n".join(log)
-
-
-@register_buildtest("Build 9 - terminate relay & collect logs")
-def build9_stoprelay(context):
-    log = []
-    name = "relay_server"
-
-    with relay_lock:
-        relay_info = context.get(name)
-        if relay_info and relay_info.get("started"):
-            thread = relay_info.get("thread")
-            logs = ip232relayserver.stop_server()  # this returns the per-client log lines
-            if thread:
-                thread.join(timeout=5)
-            relay_info["started"] = False
-            log.append("relay stopped")
-            log.extend(logs)
-        else:
-            log.append("error: relay server was not running")
-
     return True, "\n".join(log)

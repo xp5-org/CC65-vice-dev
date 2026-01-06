@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from helpers import register_testfile, register_buildtest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
-from vicehelpers import assemble_object
 import ip232relayserver
 VICE_IP = "127.0.0.1"
 
@@ -18,44 +17,50 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="reutest",
+    id="SID Music",
     types=["build"],
     system="C64",
-    platform="Devices",
+    platform="Graphics",
 )(sys.modules[__name__])
 
 
 
 
 
-@register_buildtest("build 1 - REUTEST")
-def build1_reutest(context):
-    progname = "memcart_reu"
+@register_buildtest("build 1 - Sid music")
+def build1_cuberotate(context):
+    progname = "sidplayer"
     archtype = 'c64'
     src_dir = 'c64src/' + progname
     out_dir = 'c64output/' + progname
     os.makedirs(out_dir, exist_ok=True)
+
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
     obj_file    = os.path.join(out_dir, progname + "main.o")
     prg_file    = os.path.join(out_dir, progname + "main.prg")
     d64_file    = os.path.join(out_dir, progname + ".d64")
-    # driver path info
-    driver_ser = os.path.join(src_dir, "c64-reu.emd")
-    driver_s   = os.path.join(out_dir, "c64-reu.s")
-    driver_o   = os.path.join(out_dir, "c64-reu.o")
-    driver_label = "_c64_reu"
-    
+    linkerconf  = os.path.join(src_dir, "c64-sid.cfg")
+    asm_include = os.path.join(src_dir, "sidplaysfx.s")
+    asm_object  = os.path.join(out_dir, "sidplaysfx.o")
+
+    helper_sources = [asm_include]  
+    helper_objects = [asm_object]
+
     log = []
     steps = [
         (compile_cc65, source_file, asm_file, archtype),
         (assemble_ca65, asm_file, obj_file, archtype),
-        (assemble_object, driver_ser, driver_s, driver_label),
-        (assemble_ca65, driver_s, driver_o, archtype),
-        (link_ld65, [obj_file, driver_o], prg_file, archtype),
-        (create_blank_d64, d64_file),
-        (format_and_copyd64, d64_file, prg_file),
     ]
+
+    for s, o in zip(helper_sources, helper_objects):
+        steps.append((assemble_ca65, s, o, archtype))
+
+    all_objects = [obj_file] + helper_objects
+    steps.append((link_ld65, all_objects, prg_file, archtype, linkerconf))
+
+    steps.append((create_blank_d64, d64_file))
+    steps.append((format_and_copyd64, d64_file, prg_file))
 
     for func, *args in steps:
         success, out = func(*args)
@@ -68,12 +73,13 @@ def build1_reutest(context):
 
 
 
+
 @register_buildtest("Build 2 - start cuberotate vice instance")
-def build2_reutest(context):
+def build2_launch_cuberotate(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = "c64output/memcart_reu/memcart_reu.d64"
-    config = "c64src/memcart_reu/vice_reu256k.cfg"
+    disk = "c64output/sidplayer/sidplayer.d64"
+    config = "vice_ip232_tx.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=None, autostart_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -90,7 +96,7 @@ def build2_reutest(context):
 
 
 #@register_buildtest("Build 3 - send RUN")
-#def build3_send_run(context):
+#def buil3_send_run(context):
 #    log = []
 #    for name in ["vice1"]:
 #        try:
@@ -109,7 +115,7 @@ def build4_screenshot_both(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
+            success = instance.take_screenshot(test_step=4)
             print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
@@ -122,11 +128,11 @@ def build4_screenshot_both(context):
 @register_buildtest("Build 5 - screenshot after program start")
 def build5_screenshot_both(context):
     log = []
-    time.sleep(35)  # takes a long time to laod the program
+    time.sleep(5)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=6)
+            success = instance.take_screenshot(test_step=5)
             print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
@@ -141,7 +147,7 @@ def build5_screenshot_both(context):
 def build6_stopallvice(context):
     log = []
     print("waiting 3s before teardown")
-    time.sleep(3)
+    time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

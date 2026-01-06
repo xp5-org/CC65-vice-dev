@@ -17,10 +17,10 @@ relay_lock = threading.Lock()
 
 
 register_testfile(
-    id="randchar rx-tx pair",
+    id="no-driver char rx-tx pair",
     types=["build"],
     system="C64",
-    platform="randchar",
+    platform="SerialModem",
 )(sys.modules[__name__])
 
 
@@ -120,7 +120,7 @@ def build4_launch_rx(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = "c64output/randchar_rx/randchar_rx.d64"
-    config = "vice_ip232_rx.cfg"
+    config = "c64src/randchar_tx/vice_ip232_rx_tx.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -130,8 +130,8 @@ def build4_launch_rx(context):
         log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
         context["abort"] = True
         return False, "\n".join(log)
-
-    time.sleep(3)  # wait for C64 to boot
+    
+    time.sleep(1) # wait for start
 
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
@@ -139,7 +139,7 @@ def build4_launch_rx(context):
         context["abort"] = True
         return False, "\n".join(log)
 
-    context[name] = instance
+    context["rx_instance"] = instance
     log.append(f"{name} is ready")
     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
@@ -152,17 +152,19 @@ def build5_launch_tx(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = "c64output/randchar_tx/randchar_tx.d64"
-    config = "vice_ip232_tx.cfg"
+    config = "c64src/randchar_tx/vice_ip232_rx_tx.cfg"
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
     
+    
+
     started = instance.start()
     if not started:
         log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
         context["abort"] = True
         return False, "\n".join(log)
 
-    time.sleep(3) # wait for C64 to boot
+    time.sleep(1) # wait for start
     
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
@@ -170,39 +172,47 @@ def build5_launch_tx(context):
         context["abort"] = True
         return False, "\n".join(log)
 
-    context[name] = instance
+    context["tx_instance"] = instance
     log.append(f"{name} is ready")
     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
 
 
 
-
-
-
-
-
 @register_buildtest("Build 6 - send RUN to all instances")
 def build6_send_run(context):
-    time.sleep(5)  # wait for C64s to boot
+    time.sleep(5)
     log = []
 
-    instances = [(name, instance) for name, instance in context.items() if isinstance(instance, ViceInstance)]
-    if not instances:
-        log.append("No ViceInstances found in context")
-        return True, "\n".join(log)
+    rx_instance = None
+    tx_instance = None
 
-    for name, instance in instances:
-        try:
-            success, output = send_vice_command(context, name, 'LOAD "*",8\n')
-            time.sleep(1)
-            success, output = send_vice_command(context, name, "RUN\n")
-            log.append(f"Sent RUN to {name}:\n{output}")
-        except Exception as e:
-            log.append(f"Failed to send to {name}: {e}")
+    for name, instance in context.items():
+        if not isinstance(instance, ViceInstance):
+            continue
+        if "rx" in name.lower():
+            rx_instance = (name, instance)
+        elif "tx" in name.lower():
+            tx_instance = (name, instance)
 
-    time.sleep(15)  # ensure RX client starts before TX client
+    if rx_instance:
+        name, instance = rx_instance
+        success, output = send_vice_command(context, name, 'LOAD "*",8\n')
+        time.sleep(1)
+        success, output = send_vice_command(context, name, "RUN\n")
+        log.append(f"Sent RUN to {name}:\n{output}")
+
+        time.sleep(10)
+
+    if tx_instance:
+        name, instance = tx_instance
+        success, output = send_vice_command(context, name, 'LOAD "*",8\n')
+        time.sleep(1)
+        success, output = send_vice_command(context, name, "RUN\n")
+        log.append(f"Sent RUN to {name}:\n{output}")
+
     return True, "\n".join(log)
+
 
 
 
@@ -243,7 +253,7 @@ def build8_screenshot_both(context):
 def build9_stopallvice(context):
     log = []
     print("waiting 60s before teardown")
-    time.sleep(3)
+    time.sleep(30)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

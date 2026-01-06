@@ -21,11 +21,8 @@ register_testfile(
     id="serialdriver",
     types=["build"],
     system="C64",
-    platform="VICE",
+    platform="Devices",
 )(sys.modules[__name__])
-
-
-
 
 
 @register_buildtest("build 1 - serial")
@@ -38,7 +35,7 @@ def build1_compile(context):
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
     obj_file    = os.path.join(out_dir, progname + "main.o")
-    prg_file    = os.path.join(out_dir, progname + "serial_driver.prg")
+    prg_file    = os.path.join(out_dir, progname + ".prg")
     d64_file    = os.path.join(out_dir, progname + ".d64")
     # driver path info
     driver_ser = os.path.join(src_dir, "c64-swlink.ser")
@@ -73,7 +70,7 @@ def build2_launch_serialtest(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = "c64output/serial_driver/serial_driver.d64"
-    config = "vice_ip232_tx.cfg"
+    config = "c64src/serial_driver/vice_ip232_rx_tx.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]

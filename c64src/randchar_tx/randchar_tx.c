@@ -7,27 +7,8 @@
 #include <c64.h>
 #include <cbm_petscii_charmap.h>
 
+
 //#link "common.c"
-
-
-#include <conio.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <peekpoke.h>
-#include <string.h>
-#include <c64.h>
-#include <cbm_petscii_charmap.h>
-
-#include <conio.h>
-#include <stdio.h>
-#include <peekpoke.h>
-#include <c64.h>
-#include <conio.h>
-#include <peekpoke.h>
-#include <string.h>
-#include <c64.h>
-
-
 
 const unsigned char start_seq[] = { '#', 0 };
 

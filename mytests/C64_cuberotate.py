@@ -20,7 +20,7 @@ register_testfile(
     id="cuberotate",
     types=["build"],
     system="C64",
-    platform="VICE",
+    platform="Graphics",
 )(sys.modules[__name__])
 
 

@@ -242,12 +242,6 @@ unsigned int rotY = 0;
 unsigned int rotZ = 0;
 
 
-
-
-
-
-
-
 void rotate_x(long *y, long *z, long angle) {
     signed long tempY = *y;
     signed long tempZ = *z;
@@ -268,14 +262,6 @@ void rotate_z(long *x, long *y, long angle) {
     *x = (tempX * cosine[angle] - tempY * sine[angle]) / 10000L;
     *y = (tempX * sine[angle] + tempY * cosine[angle]) / 10000L;
 }
-
-
-
-
-
-
-
-
 
 
 void draw_cube() {
@@ -357,26 +343,23 @@ void itoa_custom(int num, char* str) {
 
 
 char* msgcat(char* message, int num) {
-    static char result[40];  // Ensure enough space to hold the result
+    static char result[40];
     int i = 0;
     char snum[10];
     int j = 0;
 
-    // Convert the integer to string
     itoa_custom(num, snum);
 
-    // Copy the message string to result
     while (message[i] != '\0') {
         result[i] = message[i];
         i++;
     }
 
-    // Append the integer string to result
     while (snum[j] != '\0') {
         result[i++] = snum[j++];
     }
 
-    result[i] = '\0';  // Null-terminate the result
+    result[i] = '\0';  
     return result;
 }
 
@@ -386,33 +369,33 @@ char* msgcat(char* message, int num) {
 
 int main() {
     const char* mystring1 = "DEBUG MODE - painting half of screen to clear, its slow";
-  const char* mystring2 = "CUBE ROTATE SPACE BAR TOGGLES SCREEN WIPE AFTER EACH ROTATION ";
+    const char* mystring2 = "CUBE ROTATE SPACE BAR TOGGLES SCREEN WIPE AFTER EACH ROTATION ";
  
-  int ninecount; 
-  char Border;
-  char ch;
+    int ninecount; 
+    char Border;
+    char ch;
 
-      	char xxmessage[20] = "XX ROTATION - ";
-  	char yymessage[20] = "YY ROTATION - ";
-  	char zzmessage[20] = "ZZ ROTATION - ";
-  	char* newoutput;
+    char xxmessage[20] = "XX ROTATION - ";
+    char yymessage[20] = "YY ROTATION - ";
+    char zzmessage[20] = "ZZ ROTATION - ";
+    char* newoutput;
     tgi_install(tgi_static_stddrv);  
     tgi_init();      
     tgi_clear();
-  
-tgi_setcolor (COLOR_WHITE);
+    
+    tgi_setcolor (COLOR_WHITE);
 
   
     rotX = 15;  
     rotY = 110;
     rotZ = 85;
-drawWrappedString(mystring2, 20, 200, 14); 
-newoutput = msgcat(xxmessage, rotX);  // For rotX
-drawWrappedString(newoutput, 20, 200, 144); 
-newoutput = msgcat(yymessage, rotY);  // For rotX
-drawWrappedString(newoutput, 20, 200, 150); 
-newoutput = msgcat(zzmessage, rotZ);  // For rotX
-drawWrappedString(newoutput, 20, 200, 156); 
+    drawWrappedString(mystring2, 20, 200, 14); 
+    newoutput = msgcat(xxmessage, rotX);  // For rotX
+    drawWrappedString(newoutput, 20, 200, 144); 
+    newoutput = msgcat(yymessage, rotY);  // For rotX
+    drawWrappedString(newoutput, 20, 200, 150); 
+    newoutput = msgcat(zzmessage, rotZ);  // For rotX
+    drawWrappedString(newoutput, 20, 200, 156); 
   
   
       while (1) {

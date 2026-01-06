@@ -11,6 +11,10 @@ PROGRESS_FILE = "progress.txt"
 REPORT_DIR = "reports"
 compile_logs_dir = "compile_logs"
 
+testfile_registry = {}
+buildtest_registry = []
+playtest_registry = []
+packagetest_registry = []
 
 def clear_registries():
     buildtest_registry[:] = []
@@ -19,7 +23,7 @@ def clear_registries():
     testfile_registry.clear()
 
 
-testfile_registry = {}
+
 
 def register_testfile(id, types, description=None, system=None, platform=None):
     def decorator(module=None):
@@ -34,16 +38,6 @@ def register_testfile(id, types, description=None, system=None, platform=None):
         }
         return module  # <-- must return module to preserve normal import behavior
     return decorator
-
-
-
-
-
-
-
-buildtest_registry = []
-playtest_registry = []
-packagetest_registry = []
 
 def register_playtest(description):
     def decorator(func):

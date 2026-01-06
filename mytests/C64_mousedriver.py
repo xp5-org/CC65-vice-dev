@@ -21,7 +21,7 @@ register_testfile(
     id="mousedriver",
     types=["build"],
     system="C64",
-    platform="VICE",
+    platform="Graphics",
 )(sys.modules[__name__])
 
 

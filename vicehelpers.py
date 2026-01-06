@@ -23,7 +23,6 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def ascii_to_petscii_c128(ascii_str, addr_start=0x0287):
-    """Convert ASCII to PETSCII bytes for C128 native mode."""
     petscii_bytes = []
     for ch in ascii_str:
         if 'a' <= ch <= 'z':
@@ -35,37 +34,15 @@ def ascii_to_petscii_c128(ascii_str, addr_start=0x0287):
     return cmd
 
 def send_c128_command(context, name, cmd_str):
-    
     # Convert to petscii and write to keyboard buffer
     petscii_cmd = ascii_to_petscii_c128(cmd_str + '\r')  # add carriage return
     petscii_cmd = ascii_to_petscii_cmd(cmd_str + '\r')  # add carriage return
     response1 = send_single_command(context, name, petscii_cmd)
 
-    # Trigger the keyboard buffer: write length to $00C6
+    # write length of buffer to $00C6
     trigger_cmd = "f 00C6 00C6 {:02X}".format(len(cmd_str) + 1)
     response2 = send_single_command(context, name, trigger_cmd)
-    
     return "\n".join([response1, response2])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def ascii_to_petscii_cmd(ascii_str, addr_start=0x0277):
     petscii_bytes = []
@@ -181,15 +158,15 @@ def launch_vice_instance(instance, boot_delay=3):
     return True, log
 
 
-
 class ViceInstance:
-    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None):
+    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None, autostart_path=None):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.name = name
         self.port = port
         self.archtype = archtype
         self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
         self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
+        self.autostart_path = os.path.join(base_dir, autostart_path) if autostart_path and not os.path.isabs(autostart_path) else autostart_path
         self.window_id = None
         self.screenshot_count = 0
         self.rom_path = os.path.join(base_dir, rom_path) if rom_path and not os.path.isabs(rom_path) else rom_path
@@ -248,6 +225,8 @@ class ViceInstance:
             cmd += ["-8", self.disk_path]
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
+        if self.autostart_path:
+            cmd += ["-autostart", self.autostart_path]
 
         print("Starting with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
 
@@ -272,7 +251,7 @@ class ViceInstance:
 
         if not self.window_id:
             print(f"[{self.name}] Failed to get window ID, starting failed.")
-            return False  # Indicate failure here
+            return False  # sets fail here
 
         print(f"[{self.name}] Window ID: {self.window_id}")
 
@@ -282,7 +261,7 @@ class ViceInstance:
         self.thread.daemon = True
         self.thread.start()
 
-        return True  # Indicate success
+        return True
 
 
 
@@ -482,8 +461,8 @@ def assemble_ca65(asm_file, obj_file, archtype):
     success = proc.returncode == 0
     return success, proc.stdout
 
-
-def link_ld65(obj_file, output_file, archtype):
+def link_ld65(obj_file, output_file, archtype, linker_conf=None):
+    cc65_lib_path = "/usr/share/cc65/lib"
     if isinstance(obj_file, (list, tuple)):
         obj_files = obj_file
     else:
@@ -496,21 +475,32 @@ def link_ld65(obj_file, output_file, archtype):
         if not os.path.exists(p):
             return False, f"Object file not found: {p}"
 
-    if archtype == 'c64':
-        library = 'c64.lib'
-    elif archtype == 'vic20':
-        library = 'vic20.lib'
-    elif archtype == 'c128':
-        library = 'c128.lib'
+    cmd = ['ld65']
+    cmd.extend(['-L', cc65_lib_path])
+    if linker_conf is not None:
+        conf_path = os.path.join(base_dir, linker_conf)
+        if not os.path.exists(conf_path):
+            return False, f"Linker config not found: {conf_path}"
+        cmd.extend(['-C', conf_path])
     else:
-        return False, f"Unsupported architecture type: {archtype}"
+        # If no custom config
+        cmd.extend(['-t', archtype])
 
-    cmd = ['ld65', '-o', output_path, '-t', archtype]
+    cmd.extend(['-o', output_path])
     cmd.extend(obj_paths)
-    cmd.append(library)
+
+    if archtype == 'c64':
+        cmd.append('c64.lib')
+    elif archtype == 'c128':
+        cmd.append('c128.lib')    
+    elif archtype == 'vic20':
+        cmd.append('vic20.lib')
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
+    if success and not os.path.exists(output_path):
+        return False, f"Link failed, {output_path} not created"
+
     return success, proc.stdout
 
 
@@ -543,8 +533,6 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
     return success, proc.stdout
 
 C64_COLORS = {
-    # these are set to a specific VICE color profile
-    # CRT filters etc will change these
     'black':    ((0, 0, 0), (40, 40, 40)),
     'white':    ((200, 200, 200), (255, 255, 255)),
     'red':      ((150, 0, 0), (255, 80, 80)),
@@ -559,48 +547,7 @@ C64_COLORS = {
     'gray':     ((80, 80, 80), (160, 160, 160)),
 } 
 
-def qrdecode(imagepath, mode='one'):
-    # Load image in BGR then convert to RGB
-    image_bgr = cv2.imread(imagepath)
-    if image_bgr is None:
-        raise ValueError("Image not found or unable to read.")
-    image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-
-    results = {}
-
-    if mode == 'one':
-        # Decode whole image for single QR code
-        decoded_objects = pyzbar.decode(image)
-        if decoded_objects:
-            # Put first found code in 'default' key
-            results['default'] = decoded_objects[0].data.decode('utf-8')
-        else:
-            results['default'] = None
-        return results
-
-    elif mode == 'many':
-        # Process each C64 color range separately
-        for color_name, (lower_rgb, upper_rgb) in C64_COLORS.items():
-            lower = np.array(lower_rgb, dtype=np.uint8)
-            upper = np.array(upper_rgb, dtype=np.uint8)
-            # Create a mask selecting pixels within the color range
-            mask = cv2.inRange(image, lower, upper)
-            # Optional: use mask to extract color region
-            masked_img = cv2.bitwise_and(image, image, mask=mask)
-            # Decode QR codes in this masked region
-            decoded_objects = pyzbar.decode(masked_img)
-            # Collect all decoded strings for this color
-            decoded_strings = [obj.data.decode('utf-8') for obj in decoded_objects]
-            if decoded_strings:
-                results[color_name] = decoded_strings
-            else:
-                results[color_name] = []
-
-        return results
-
-    else:
-        raise ValueError("Mode must be 'one' or 'many'")
-    
+   
 
 
 def assemble_object(ser_file, s_file, label, base_dir=base_dir):
@@ -615,11 +562,9 @@ def assemble_object(ser_file, s_file, label, base_dir=base_dir):
     ]
     subprocess.check_call(cmd)
 
-    # co65 outputs .s next to .ser by default; rename to desired location
+    # co65 outputs .s next to .ser by default
     generated_s = os.path.splitext(ser_file)[0] + ".s"
     if generated_s != s_file:
         os.rename(generated_s, s_file)
 
     return True, s_file
-
-

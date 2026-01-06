@@ -138,7 +138,7 @@ ENV VENV_PATH=/opt/venv
 COPY services.conf /etc/supervisor/conf.d/services.conf
 RUN mkdir -p /var/log && touch /var/log/flaskapp.out.log /var/log/flaskapp.err.log
 
-RUN apt-get install -y netcat-openbsd freerdp2-x11
+#RUN apt-get install -y netcat-openbsd freerdp2-x11
 
 # need at least these 2 ports
 EXPOSE 3389 8080
