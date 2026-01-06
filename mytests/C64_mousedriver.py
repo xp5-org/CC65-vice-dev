@@ -4,7 +4,16 @@ import time
 import threading
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
-from helpers import register_testfile, register_buildtest
+TESTSRC_TESTLISTDIR = "/testsrc/mytests"
+TESTSRC_BASEDIR = "/testsrc"
+TESTSRC_HELPERDIR = "/testsrc/helpers"
+
+# make app helpers dir visible
+if TESTSRC_HELPERDIR  not in sys.path:
+    sys.path.insert(0, TESTSRC_HELPERDIR )
+
+
+from apphelpers import register_testfile, register_buildtest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 from vicehelpers import assemble_object

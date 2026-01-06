@@ -15,8 +15,8 @@ VICE_BASE_PORT = 65501
 assigned_window_ids = set()
 
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
-
+# base_dir = os.path.dirname(os.path.abspath(__file__))
+base_dir = "/testsrc/"
 
 
 
@@ -160,7 +160,8 @@ def launch_vice_instance(instance, boot_delay=3):
 
 class ViceInstance:
     def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None, autostart_path=None):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        #base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = "/testsrc/"
         self.name = name
         self.port = port
         self.archtype = archtype
@@ -199,7 +200,8 @@ class ViceInstance:
 
     def start(self):
         ViceInstance.seen_window_ids.clear()
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        #base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = "/testsrc/"
         env = os.environ.copy()
         if "DISPLAY" not in env:
             env["DISPLAY"] = ":10"
@@ -292,8 +294,9 @@ class ViceInstance:
             print(f"[{self.name}] No window ID cached, cannot take screenshot.")
             return False
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        reports_dir = os.path.join(base_dir, "reports")
+        # base_dir = os.path.dirname(os.path.abspath(__file__))
+        screenshot_base_dir = "/testrunnerapp/"
+        reports_dir = os.path.join(screenshot_base_dir, "reports")
 
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)

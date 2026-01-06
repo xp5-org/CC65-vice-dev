@@ -3,8 +3,17 @@ import os
 import time
 import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
-from helpers import register_testfile, register_buildtest
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /testsrc/mytests dir as modules
+TESTSRC_TESTLISTDIR = "/testsrc/mytests"    # individual test-cases
+TESTSRC_BASEDIR = "/testsrc"                # root dir of git repo vice-specific test src
+TESTSRC_HELPERDIR = "/testsrc/pyhelpers"    # vicehelpers.py lives here
+
+# make app helpers dir visible
+if TESTSRC_HELPERDIR  not in sys.path:
+    sys.path.insert(0, TESTSRC_HELPERDIR )
+
+
+from apphelpers import register_testfile, register_buildtest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 import ip232relayserver

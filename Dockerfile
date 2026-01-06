@@ -127,8 +127,8 @@ RUN python3 -m venv /opt/venv && \
 ENV VENV_PATH=/opt/venv
 
 # get the flask-testrunner core
-WORKDIR /testrunnerapp
-RUN git clone https://github.com/xp5-org/flask-testrunner.git /testrunnerapp 
+#WORKDIR /testrunnerapp
+#RUN git clone https://github.com/xp5-org/flask-testrunner.git /testrunnerapp 
 
 # set up supervisord to run flask app
 COPY services.conf /etc/supervisor/conf.d/services.conf
