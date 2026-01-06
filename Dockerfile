@@ -61,11 +61,6 @@ RUN mkdir -p /var/run/dbus && \
     echo "xfce4-session" >> /etc/skel/.Xsession
 
 
-    
-
-
-
-
 WORKDIR /root
 
 # get & copy VICE roms
@@ -120,9 +115,6 @@ RUN git clone https://github.com/OpenCBM/OpenCBM.git && \
 COPY entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
 
-# setup dir with app code
-#RUN apt-get update && apt-get install -y git
-#RUN git clone https://github.com/xp5-org/CC65-vice-dev.git /myapp
 
 COPY requirements.txt /app/
 # create venv
@@ -134,11 +126,13 @@ RUN python3 -m venv /opt/venv && \
     find /opt/venv -type d -exec chmod g+s {} \;
 ENV VENV_PATH=/opt/venv
 
+# get the flask-testrunner core
+WORKDIR /testrunnerapp
+RUN git clone https://github.com/xp5-org/flask-testrunner.git /testrunnerapp 
+
 # set up supervisord to run flask app
 COPY services.conf /etc/supervisor/conf.d/services.conf
 RUN mkdir -p /var/log && touch /var/log/flaskapp.out.log /var/log/flaskapp.err.log
-
-#RUN apt-get install -y netcat-openbsd freerdp2-x11
 
 # need at least these 2 ports
 EXPOSE 3389 8080
