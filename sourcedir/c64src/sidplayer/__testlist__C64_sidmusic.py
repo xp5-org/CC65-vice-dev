@@ -35,10 +35,7 @@ out_dir = src_dir + "/output"
 
 @register_buildtest("build 1 - Sid music")
 def build1_cuberotate(context):
-    progname = "sidplayer"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
+
     os.makedirs(out_dir, exist_ok=True)
 
     source_file = os.path.join(src_dir, progname + ".c")

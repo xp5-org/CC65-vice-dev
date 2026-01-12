@@ -31,21 +31,18 @@ register_testfile(
     platform="SerialModem",
 )(sys.modules[__name__])
 
-progname = "randchar_tx"
+projname = "randchar_rxtxpair"
 archtype = 'c64'
-src_dir = 'c64src/' + progname
-out_dir = 'c64output/' + progname
+projsrc_dir = 'sourcedir/c64src/' + projname
+out_dir = projsrc_dir + "/output"
 
 
 
 @register_buildtest("build 1 - rx client")
 def build1_cuberotate(context):
     progname = "randchar_rx"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, progname + ".c")
+    source_file = os.path.join(projsrc_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
@@ -74,11 +71,8 @@ def build1_cuberotate(context):
 @register_buildtest("build 1 - tx client")
 def build1_cuberotate(context):
     progname = "randchar_tx"
-    archtype = 'c64'
-    src_dir = 'c64src/' + progname
-    out_dir = 'c64output/' + progname
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, progname + ".c")
+    source_file = os.path.join(projsrc_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
@@ -131,7 +125,7 @@ def build4_launch_rx(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = out_dir + "/randchar_rx.d64"
-    config = src_dir + "/vice_ip232_rx_tx.cfg"
+    config = projsrc_dir + "/vice_ip232_rxtx.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -162,8 +156,8 @@ def build4_launch_rx(context):
 def build5_launch_tx(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = "c64output/randchar_tx/randchar_tx.d64"
-    config = "c64src/randchar_tx/vice_ip232_rx_tx.cfg"
+    disk = out_dir + "/randchar_tx.d64"
+    config = projsrc_dir + "/vice_ip232_rxtx.cfg"
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
     

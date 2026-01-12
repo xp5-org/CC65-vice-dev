@@ -6,9 +6,7 @@ import threading
 import signal
 import pytesseract
 from PIL import Image
-import cv2
-import numpy as np
-from pyzbar import pyzbar
+import shutil
 
 
 VICE_BASE_PORT = 65501
@@ -22,27 +20,74 @@ base_dir = "/testsrc/"
 
 
 
-def ascii_to_petscii_c128(ascii_str, addr_start=0x0287):
+def ascii_to_petscii_c128(ascii_str, addr_start=0x0352):
     petscii_bytes = []
     for ch in ascii_str:
+        # Convert lowercase ascii to uppercase PETSCII
         if 'a' <= ch <= 'z':
-            ch = ch.upper()
-        petscii_bytes.append(ord(ch))
-    addr_end = addr_start + len(petscii_bytes) - 1
+            petscii_bytes.append(ord(ch) - 0x20)
+        # Keep uppercase, numbers, and symbols as-is
+        else:
+            petscii_bytes.append(ord(ch))
+            
+    # Max 10 chars for hardware buffer
+    petscii_bytes = petscii_bytes[:10]
+    
     byte_strs = ["{:02X}".format(b) for b in petscii_bytes]
-    cmd = "f {:04X} {:04X} {}".format(addr_start, addr_end, " ".join(byte_strs))
+    cmd = "> {:04X} {}".format(addr_start, " ".join(byte_strs))
     return cmd
 
 def send_c128_command(context, name, cmd_str):
-    # Convert to petscii and write to keyboard buffer
-    petscii_cmd = ascii_to_petscii_c128(cmd_str + '\r')  # add carriage return
-    petscii_cmd = ascii_to_petscii_cmd(cmd_str + '\r')  # add carriage return
-    response1 = send_single_command(context, name, petscii_cmd)
+    lines = cmd_str.splitlines()
+    for line in lines:
+        clean_line = line.lower().replace('"', '\\"')
+        if not clean_line:
+            continue
+        monitor_cmd = 'keybuf "' + clean_line + '\\x0d"'
+        send_single_C128command(context, name, monitor_cmd)
+    return True, "Sent all lines"
 
-    # write length of buffer to $00C6
-    trigger_cmd = "f 00C6 00C6 {:02X}".format(len(cmd_str) + 1)
-    response2 = send_single_command(context, name, trigger_cmd)
-    return "\n".join([response1, response2])
+def send_single_C128command(context, name, cmd_str):
+    instance = context.get(name)
+    port = instance.port
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        payload = cmd_str.encode('ascii') + b'\r\n'
+        sock.sendall(payload)
+        sock.shutdown(socket.SHUT_WR)
+        response = b""
+        while True:
+            data = sock.recv(4096)
+            if not data:
+                break
+            response += data
+        return response.decode(errors='ignore')
+
+
+
+
+
+def send_single_command(context, name, cmd_str):
+    if not isinstance(cmd_str, str):
+        raise TypeError(f"cmd_str must be a string, got {type(cmd_str)}: {cmd_str}")
+
+    instance = context.get(name)
+    if not isinstance(instance, ViceInstance):
+        raise ValueError(f"No ViceInstance named '{name}' in context")
+
+    port = instance.port
+    print(f"Connecting to VICE '{name}' on port {port} to send: {cmd_str.strip()}")
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall((cmd_str + "\n").encode('ascii'))
+        sock.shutdown(socket.SHUT_WR)
+        response = b""
+        while True:
+            data = sock.recv(4096)
+            if not data:
+                break
+            response += data
+        print(f"VICE '{name}' response:\n", response.decode(errors='ignore'))
+        return response.decode(errors='ignore')
+    
 
 def ascii_to_petscii_cmd(ascii_str, addr_start=0x0277):
     petscii_bytes = []
@@ -67,29 +112,11 @@ def wait_for_port(host, port, timeout=10):
             time.sleep(0.1)
     return False
 
-def send_single_command(context, name, cmd_str):
-    if not isinstance(cmd_str, str):
-        raise TypeError(f"cmd_str must be a string, got {type(cmd_str)}: {cmd_str}")
 
-    instance = context.get(name)
-    if not isinstance(instance, ViceInstance):
-        raise ValueError(f"No ViceInstance named '{name}' in context")
 
-    port = instance.port
-    print(f"Connecting to VICE '{name}' on port {port} to send: {cmd_str.strip()}")
-    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
-        sock.sendall((cmd_str + "\n").encode('ascii'))
-        sock.shutdown(socket.SHUT_WR)
-        response = b""
-        while True:
-            data = sock.recv(4096)
-            if not data:
-                break
-            response += data
-        print(f"VICE '{name}' response:\n", response.decode(errors='ignore'))
-        return response.decode(errors='ignore')
 
 def send_vice_command(context, name, string):
+    # for c64 keyboard input
     string = string.replace('\n', '\r')
     i = 0
     log = []
@@ -107,6 +134,32 @@ def send_vice_command(context, name, string):
         i += 10
 
     return True, "\n".join(log)
+
+
+def send_pet_text(context, name, string):
+    string = string.replace('\n', '\r')
+    i = 0
+    log = []
+    
+    buffer_addr = 0x026F
+    count_addr = 0x009E
+
+    while i < len(string):
+        chunk = string[i:i + 10]
+        length = len(chunk)
+        
+        hex_values = " ".join([f"{ord(c):02X}" for c in chunk])
+        
+        log.append(send_single_command(context, name, "stop"))
+        log.append(send_single_command(context, name, f"f {buffer_addr:04X} {buffer_addr + length - 1:04X} {hex_values}"))
+        log.append(send_single_command(context, name, f"f {count_addr:04X} {count_addr:04X} {length:02X}"))
+        log.append(send_single_command(context, name, "x"))
+        
+        i += 10
+
+    return True, "\n".join(log)
+
+
 
 def next_vice_instance(context):
     if "_vice_count" not in context:
@@ -214,6 +267,8 @@ class ViceInstance:
             cmd = ["x128"]
         elif self.archtype == 'vic20':
             cmd = ["xvic"]
+        elif self.archtype == 'pet':
+            cmd = ["xpet"]
         else:
             raise ValueError(f"Unsupported archtype: {self.archtype}")
 
@@ -498,6 +553,8 @@ def link_ld65(obj_file, output_file, archtype, linker_conf=None):
         cmd.append('c128.lib')    
     elif archtype == 'vic20':
         cmd.append('vic20.lib')
+    elif archtype == 'pet':
+        cmd.append('pet.lib')
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
@@ -523,6 +580,7 @@ def create_blank_d64(d64_name, base_dir=base_dir):
     success = proc.returncode == 0
     return success, proc.stdout
 
+
 def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
     d64_path = os.path.join(base_dir, d64_name)
     prg_path = os.path.join(base_dir, prg_file)
@@ -530,25 +588,19 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
     if not os.path.exists(prg_path):
         return False, f"PRG file not found: {prg_path}"
 
-    cmd = ['c1541', '-attach', d64_path, '-write', prg_path]
+    destination_name = f"{os.path.basename(prg_path)},p"
+    cmd = ['c1541', '-attach', d64_path, '-write', prg_path, destination_name]
+    #cmd = ['c1541', '-attach', d64_path, '-write', prg_path]
     proc = subprocess.run(cmd, cwd=base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
 
-C64_COLORS = {
-    'black':    ((0, 0, 0), (40, 40, 40)),
-    'white':    ((200, 200, 200), (255, 255, 255)),
-    'red':      ((150, 0, 0), (255, 80, 80)),
-    'cyan':     ((0, 150, 150), (80, 255, 255)),
-    'purple':   ((150, 0, 150), (255, 80, 255)),
-    'green':    ((0, 150, 0), (80, 255, 80)),
-    'blue':     ((0, 0, 150), (80, 80, 255)),
-    'yellow':   ((150, 150, 0), (255, 255, 80)),
-    'orange':   ((200, 80, 0), (255, 150, 80)),
-    'brown':    ((100, 50, 0), (160, 110, 50)),
-    'lightred': ((255, 100, 100), (255, 170, 170)),
-    'gray':     ((80, 80, 80), (160, 160, 160)),
-} 
+
+
+
+
+
+
 
    
 

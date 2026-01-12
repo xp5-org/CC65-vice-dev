@@ -42,10 +42,6 @@ out_dir = src_dir + "/output"
 
 @register_buildtest("build 1 - serial")
 def build1_compile(context):
-    progname = "swiftlink_charsend"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -107,7 +103,7 @@ def build3_launch_serialtest(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = out_dir + "/swiftlink_charsend.d64"
-    config = "c64src/swiftlink_charsend/vice_ip232_rx_tx.cfg"
+    config = src_dir + "/vice_ip232_swiftlink.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]

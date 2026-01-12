@@ -14,74 +14,59 @@ if TESTSRC_HELPERDIR  not in sys.path:
 
 
 from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_vice_command, ViceInstance, next_vice_instance
+from vicehelpers import send_c128_command, ViceInstance, next_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
 
 register_testfile(
-    id="vic20 text pattern",
+    id="C128 text print",
     types=["build"],
-    system="vic20",
+    system="C128",
     platform="Graphics",
 )(sys.modules[__name__])
 
 
-archtype = 'vic20'
-src_dir = 'sourcedir/vic20src/testprog'
+archtype = 'pet'
+src_dir = '/testsrc/sourcedir/c128src/textprint'
 out_dir = src_dir + '/output'
 
 
 @register_buildtest("build 1 - testprog")
-def test1_vic20(context):
+def test1_cbmpet(context):
+    progname = "testprog"
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, 'testprog.c')
-    asm_file = os.path.join(out_dir, 'testprog.s')
-    obj_file = os.path.join(out_dir, 'testprog.o')
-    prg_file = os.path.join(out_dir, 'testprog.prg')
-    d64_file = os.path.join(out_dir, 'testprog.d64')
+    source_file = os.path.join(src_dir, progname + ".c")
+    asm_file    = os.path.join(out_dir, progname + "main.s")
+    obj_file    = os.path.join(out_dir, progname + "main.o")
+    prg_file    = os.path.join(out_dir, progname + "main.prg")
+    d64_file    = os.path.join(out_dir, progname + ".d64")
 
     log = []
+    steps = [
+        (compile_cc65, source_file, asm_file, archtype),
+        (assemble_ca65, asm_file, obj_file, archtype),
+        (link_ld65, obj_file, prg_file, archtype),
+        (create_blank_d64, d64_file),
+        (format_and_copyd64, d64_file, prg_file),
+    ]
 
-    success, out = compile_cc65(source_file, asm_file, archtype)
-    log.append("Compile cc65:\n" + out)
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    success, out = assemble_ca65(asm_file, obj_file, archtype)
-    log.append("Assemble ca65:\n" + out)
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    success, out = link_ld65(obj_file, prg_file, archtype)
-    log.append("Link ld65:\n" + out)
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    success, out = create_blank_d64(d64_file)
-    log.append("Create blank d64:\n" + out)
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    success, out = format_and_copyd64(d64_file, prg_file)
-    log.append("Format and copy to d64:\n" + out)
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
+    for func, *args in steps:
+        success, out = func(*args)
+        log.append(f"{func.__name__}:\n{out}")
+        if not success:
+            context["abort"] = True
+            return False, "\n".join(log)
 
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start vic20 vice instance")
-def test2_vic20(context):
-    archtype = 'vic20'
+@register_buildtest("Build 3 - start xpet vice instance")
+def test2_cbmpet(context):
+    archtype = 'c128'
     name, port = next_vice_instance(context)
     disk = out_dir + "/testprog.d64"
-    config = "vice_ip232_tx.cfg"
+    config = src_dir + "/vice_c128.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -111,9 +96,9 @@ def test3_vic20(context):
     log = []
     for name in ["vice1"]:
         try:
-            success, output = send_vice_command(context, name, 'LOAD "*",8\n')
+            success, output = send_c128_command(context, name, 'LOAD "*",8')
             time.sleep(3)
-            success, output = send_vice_command(context, name, "RUN\n")
+            success, output = send_c128_command(context, name, "RUN")
             log.append(f"Sent RUN to {name}:\n{output}")
         except Exception as e:
             log.append(f"Failed to send to {name}: {e}")
