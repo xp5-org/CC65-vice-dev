@@ -14,3 +14,9 @@
 /c64output
 /vic20output
 /c64output
+/vic20output
+/sourcedir/vic20src/testprog/output
+/sourcedir/c64src/sidplayer/output
+/sourcedir/c64src/memcart_reu/output
+/sourcedir/c64src/drivertest_mouse/output
+/sourcedir/c64src/cuberotate/output
