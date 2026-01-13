@@ -33,7 +33,7 @@ out_dir = src_dir + '/output'
 
 
 @register_buildtest("build 1 - testprog")
-def test1_cbmpet(context):
+def test1_c128(context):
     progname = "testprog"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
@@ -62,7 +62,7 @@ def test1_cbmpet(context):
 
 
 @register_buildtest("Build 3 - start c128 vice instance")
-def test2_cbmpet(context):
+def test2_c128(context):
     archtype = 'c128'
     name, port = next_vice_instance(context)
     disk = out_dir + "/testprog.d64"
@@ -92,7 +92,7 @@ def test2_cbmpet(context):
 
 
 @register_buildtest("Build 4 - send RUN")
-def test3_vic20(context):
+def test3_c128(context):
     log = []
     for name in ["vice1"]:
         try:
@@ -106,7 +106,7 @@ def test3_vic20(context):
 
 
 @register_buildtest("Build 5 - screenshot after boot command")
-def test4_vic20(context):
+def test4_c128(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
@@ -120,7 +120,7 @@ def test4_vic20(context):
 
 
 @register_buildtest("Build 6 - screenshot after program start")
-def test5_vic20(context):
+def test5_c128(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
@@ -136,7 +136,7 @@ def test5_vic20(context):
 
 
 @register_buildtest("Build 8 - terminate all")
-def test6_vic20(context):
+def test6_c128(context):
     log = []
     print("waiting 3s before teardown")
     time.sleep(1)

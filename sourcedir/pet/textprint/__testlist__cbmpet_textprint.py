@@ -14,7 +14,7 @@ if TESTSRC_HELPERDIR  not in sys.path:
 
 
 from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_pet_text, ViceInstance, next_vice_instance
+from vicehelpers import send_cbmpet_text, ViceInstance, next_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
@@ -92,13 +92,13 @@ def test2_cbmpet(context):
 
 
 @register_buildtest("Build 4 - send RUN")
-def test3_vic20(context):
+def test3_cbmpet(context):
     log = []
     for name in ["vice1"]:
         try:
-            success, output = send_pet_text(context, name, 'LOAD "*",8\n')
+            success, output = send_cbmpet_text(context, name, 'LOAD "*",8\n')
             time.sleep(3)
-            success, output = send_pet_text(context, name, "RUN\n")
+            success, output = send_cbmpet_text(context, name, "RUN\n")
             log.append(f"Sent RUN to {name}:\n{output}")
         except Exception as e:
             log.append(f"Failed to send to {name}: {e}")
@@ -106,7 +106,7 @@ def test3_vic20(context):
 
 
 @register_buildtest("Build 5 - screenshot after boot command")
-def test4_vic20(context):
+def test4_cbmpet(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
@@ -120,7 +120,7 @@ def test4_vic20(context):
 
 
 @register_buildtest("Build 6 - screenshot after program start")
-def test5_vic20(context):
+def test5_cbmpet(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
@@ -136,7 +136,7 @@ def test5_vic20(context):
 
 
 @register_buildtest("Build 8 - terminate all")
-def test6_vic20(context):
+def test6_cbmpet(context):
     log = []
     print("waiting 3s before teardown")
     time.sleep(1)

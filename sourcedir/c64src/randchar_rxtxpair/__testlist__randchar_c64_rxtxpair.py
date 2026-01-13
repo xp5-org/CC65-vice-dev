@@ -39,7 +39,7 @@ out_dir = projsrc_dir + "/output"
 
 
 @register_buildtest("build 1 - rx client")
-def build1_cuberotate(context):
+def build1_buildrx(context):
     progname = "randchar_rx"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(projsrc_dir, progname + ".c")
@@ -69,7 +69,7 @@ def build1_cuberotate(context):
 
 
 @register_buildtest("build 1 - tx client")
-def build1_cuberotate(context):
+def build1_buildtx(context):
     progname = "randchar_tx"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(projsrc_dir, progname + ".c")

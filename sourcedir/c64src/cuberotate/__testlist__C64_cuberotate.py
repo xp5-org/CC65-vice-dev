@@ -70,7 +70,7 @@ def build2_launch_cuberotate(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = out_dir + "/cuberotate.d64"
-    config = src_dir + "/vice_ip232_tx.cfg"
+    config = src_dir + "/vice_nosound.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]

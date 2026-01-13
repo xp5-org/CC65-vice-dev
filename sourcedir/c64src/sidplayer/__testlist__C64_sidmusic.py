@@ -34,7 +34,7 @@ out_dir = src_dir + "/output"
 
 
 @register_buildtest("build 1 - Sid music")
-def build1_cuberotate(context):
+def build1_compile(context):
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -61,7 +61,6 @@ def build1_cuberotate(context):
 
     all_objects = [obj_file] + helper_objects
     steps.append((link_ld65, all_objects, prg_file, archtype, linkerconf))
-
     steps.append((create_blank_d64, d64_file))
     steps.append((format_and_copyd64, d64_file, prg_file))
 
@@ -77,12 +76,12 @@ def build1_cuberotate(context):
 
 
 
-@register_buildtest("Build 2 - start cuberotate vice instance")
-def build2_launch_cuberotate(context):
+@register_buildtest("Build 2 - start vice instance")
+def build2_launch(context):
     archtype = 'c64'
     name, port = next_vice_instance(context)
     disk = out_dir + "/sidplayer.d64"
-    config = "vice_ip232_tx.cfg"
+    config = src_dir + "/c64-sid.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=None, autostart_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
@@ -97,23 +96,8 @@ def build2_launch_cuberotate(context):
 
 
 
-
-#@register_buildtest("Build 3 - send RUN")
-#def buil3_send_run(context):
-#    log = []
-#    for name in ["vice1"]:
-#        try:
-#            success, output = send_vice_command(context, name, 'LOAD "*",8\n')
-#            time.sleep(3)
-#            success, output = send_vice_command(context, name, "RUN\n")
-#            log.append(f"Sent RUN to {name}:\n{output}")
-#        except Exception as e:
-#            log.append(f"Failed to send to {name}: {e}")
-#    return True, "\n".join(log)
-
-
-@register_buildtest("Build 4 - screenshot after boot command")
-def build4_screenshot_both(context):
+@register_buildtest("Build 3- screenshot after boot command")
+def build3_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
@@ -128,8 +112,8 @@ def build4_screenshot_both(context):
 
 
 
-@register_buildtest("Build 5 - screenshot after program start")
-def build5_screenshot_both(context):
+@register_buildtest("Build 4 - screenshot after program start")
+def build4_screenshot_both(context):
     log = []
     time.sleep(5)  # takes a long time to laod the program
     for name, instance in context.items():
@@ -146,8 +130,8 @@ def build5_screenshot_both(context):
 
 
 
-@register_buildtest("Build 6 - terminate all")
-def build6_stopallvice(context):
+@register_buildtest("Build 5 - terminate all")
+def build5_stopallvice(context):
     log = []
     print("waiting 3s before teardown")
     time.sleep(1)

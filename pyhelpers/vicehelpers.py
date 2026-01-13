@@ -131,7 +131,7 @@ def send_vice_command(context, name, string):
     return True, "\n".join(log)
 
 
-def send_pet_text(context, name, string):
+def send_cbmpet_text(context, name, string):
     string = string.replace('\n', '\r')
     i = 0
     log = []
