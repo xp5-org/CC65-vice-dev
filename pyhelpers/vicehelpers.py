@@ -6,7 +6,6 @@ import threading
 import signal
 import pytesseract
 from PIL import Image
-import shutil
 
 
 VICE_BASE_PORT = 65501
@@ -23,35 +22,35 @@ base_dir = "/testsrc/"
 def ascii_to_petscii_c128(ascii_str, addr_start=0x0352):
     petscii_bytes = []
     for ch in ascii_str:
-        # Convert lowercase ascii to uppercase PETSCII
         if 'a' <= ch <= 'z':
             petscii_bytes.append(ord(ch) - 0x20)
-        # Keep uppercase, numbers, and symbols as-is
         else:
             petscii_bytes.append(ord(ch))
             
-    # Max 10 chars for hardware buffer
     petscii_bytes = petscii_bytes[:10]
-    
     byte_strs = ["{:02X}".format(b) for b in petscii_bytes]
     cmd = "> {:04X} {}".format(addr_start, " ".join(byte_strs))
     return cmd
 
+
 def send_c128_command(context, name, cmd_str):
     lines = cmd_str.splitlines()
     for line in lines:
-        clean_line = line.lower().replace('"', '\\"')
+        clean_line = line.lower()
         if not clean_line:
             continue
-        monitor_cmd = 'keybuf "' + clean_line + '\\x0d"'
+        
+        monitor_cmd = 'keybuf ' + clean_line + '\\x0d'
+        
         send_single_C128command(context, name, monitor_cmd)
     return True, "Sent all lines"
+
 
 def send_single_C128command(context, name, cmd_str):
     instance = context.get(name)
     port = instance.port
     with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
-        payload = cmd_str.encode('ascii') + b'\r\n'
+        payload = cmd_str.encode('ascii') + b'\n\r'
         sock.sendall(payload)
         sock.shutdown(socket.SHUT_WR)
         response = b""
@@ -61,9 +60,6 @@ def send_single_C128command(context, name, cmd_str):
                 break
             response += data
         return response.decode(errors='ignore')
-
-
-
 
 
 def send_single_command(context, name, cmd_str):
@@ -102,6 +98,7 @@ def ascii_to_petscii_cmd(ascii_str, addr_start=0x0277):
     cmd = "f {:04X} {:04X} {}".format(addr_start, addr_end, " ".join(byte_strs))
     return cmd
 
+
 def wait_for_port(host, port, timeout=10):
     start = time.time()
     while time.time() - start < timeout:
@@ -111,8 +108,6 @@ def wait_for_port(host, port, timeout=10):
         except:
             time.sleep(0.1)
     return False
-
-
 
 
 def send_vice_command(context, name, string):
@@ -143,22 +138,17 @@ def send_pet_text(context, name, string):
     
     buffer_addr = 0x026F
     count_addr = 0x009E
-
     while i < len(string):
         chunk = string[i:i + 10]
         length = len(chunk)
-        
         hex_values = " ".join([f"{ord(c):02X}" for c in chunk])
-        
         log.append(send_single_command(context, name, "stop"))
         log.append(send_single_command(context, name, f"f {buffer_addr:04X} {buffer_addr + length - 1:04X} {hex_values}"))
         log.append(send_single_command(context, name, f"f {count_addr:04X} {count_addr:04X} {length:02X}"))
         log.append(send_single_command(context, name, "x"))
-        
         i += 10
 
     return True, "\n".join(log)
-
 
 
 def next_vice_instance(context):
@@ -172,6 +162,7 @@ def next_vice_instance(context):
     port = VICE_BASE_PORT + index
 
     return name, port
+
 
 def find_window_id_by_pid(pid):
     try:
@@ -187,8 +178,6 @@ def find_window_id_by_pid(pid):
     except subprocess.CalledProcessError:
         return None
     return None
-
-
 
 # wrapper for putting logging around class start method
 def launch_vice_instance(instance, boot_delay=3):
@@ -416,6 +405,7 @@ def croptheimage(image_path):
         print(f"Failed to crop image {image_path}: {e}")
         return False
 
+
 def ocr_word_find(instance, phrase, timeout=10, startx=None, starty=None, stopx=None, stopy=None, errorphrase=None):
     ocrlogdir = os.path.join(base_dir, "compile_logs")
     os.makedirs(ocrlogdir, exist_ok=True)
@@ -506,6 +496,7 @@ def compile_cc65(source_file, output_file, archtype):
     success = proc.returncode == 0
     return success, proc.stdout
 
+
 def assemble_ca65(asm_file, obj_file, archtype):
     asm_path = os.path.join(base_dir, asm_file)
     obj_path = os.path.join(base_dir, obj_file)
@@ -518,6 +509,7 @@ def assemble_ca65(asm_file, obj_file, archtype):
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
+
 
 def link_ld65(obj_file, output_file, archtype, linker_conf=None):
     cc65_lib_path = "/usr/share/cc65/lib"
@@ -594,15 +586,6 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
     proc = subprocess.run(cmd, cwd=base_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
-
-
-
-
-
-
-
-
-   
 
 
 def assemble_object(ser_file, s_file, label, base_dir=base_dir):

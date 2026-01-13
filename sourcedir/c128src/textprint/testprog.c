@@ -1,4 +1,4 @@
-#include <pet.h>
+#include <c128.h>
 #include <conio.h>
 #include <stdlib.h>
 

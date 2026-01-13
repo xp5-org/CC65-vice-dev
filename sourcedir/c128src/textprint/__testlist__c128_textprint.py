@@ -27,7 +27,7 @@ register_testfile(
 )(sys.modules[__name__])
 
 
-archtype = 'pet'
+archtype = 'c128'
 src_dir = '/testsrc/sourcedir/c128src/textprint'
 out_dir = src_dir + '/output'
 
@@ -61,12 +61,12 @@ def test1_cbmpet(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start xpet vice instance")
+@register_buildtest("Build 3 - start c128 vice instance")
 def test2_cbmpet(context):
     archtype = 'c128'
     name, port = next_vice_instance(context)
     disk = out_dir + "/testprog.d64"
-    config = src_dir + "/vice_c128.cfg"
+    config = src_dir + "/c128_viceconf.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
