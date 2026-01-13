@@ -30,8 +30,9 @@ docker isnt needed to use this, can clone the git repo, set up your venv and run
 i have the dir ```/bigpool/data/code_projects/``` shared out, and navigated here , downloaded the GIT link, built the docker image, and ran the container from here
 ```
 $ cd /bigpool/data/code_projects/
-$ cd CC65-vice-dev
+$ git clone https://github.com/xp5-org/flask-testrunner
 $ git clone https://github.com/xp5-org/CC65-vice-dev.git
+$ cd CC65-vice-dev
 $ docker build -t cc65vicedev ./
 [+] Building 251.6s (18/18) FINISHED
 
@@ -42,15 +43,14 @@ cc65vicedev                       latest    4fa1328959a2   46 seconds ago   1.89
 
 once the image is built, run the container
 
--v can be omitted if you dont need to make the testrunnerapp visible outside of the container, but it will make code-edits and file copying more challenging without it
-
 ```
-$ docker run -it -d \
+docker run --it \
   -p 3389:3389 \
-  -p 8088:8080 \
+  -p 8080:8080 \
   -e USERPASSWORD=a \
   -e USERNAME=user \
-  -v /bigpool/data/code_projects/CC65-vice-dev:/testrunnerapp \
+  -v /bigpool/data/code_projects/CC65-vice-dev:/testsrc \
+  -v /bigpool/data/code_projects/flask-testrunner:/testrunnerapp \
   cc65vicedev
 ```
 
