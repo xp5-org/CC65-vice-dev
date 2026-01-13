@@ -13,7 +13,7 @@ fi
 
 if [ -n "$USERNAME" ]; then
   echo "USERNAME: $USERNAME" #debug
-  echo "$USERNAME" > usernameoutput.txt  #save
+ # echo "$USERNAME" > usernameoutput.txt  #save
 else
   USERNAME="user"
 fi
