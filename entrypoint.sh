@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DESKTOP="$USERHOME/Desktop"
+
 if [ -n "$USERPASSWORD" ]; then
   echo ''
   echo "USERPASSWORD: $USERPASSWORD" # print password to docker log console
@@ -31,9 +33,28 @@ cat <<EOF > /home/$USERNAME/Desktop/runme.sh
 xfce4-terminal --hold --command="bash -c 'source /opt/venv/bin/activate && python3 /testrunnerapp/app.py'"
 EOF
 
-echo "debug2"
+cat <<'EOF' > /home/$USERNAME/Desktop/sound_en.sh
+#!/bin/bash
+export XDG_RUNTIME_DIR=/run/user/1001
+export PULSE_SERVER=unix:$XDG_RUNTIME_DIR/pulse/native
+#/app/startaudio.sh >$HOME/pipewire_output.log 2>&1 &
+( /app/startaudio.sh >$HOME/pipewire_output.log 2>&1 & ) && disown
+xfce4-terminal --hold --command="tail -f $HOME/pipewire_output.log"
+EOF
+chmod +x /home/$USERNAME/Desktop/sound_en.sh
 
+
+cat <<'EOF' > /home/$USERNAME/Desktop/soundlog.sh
+#!/bin/bash
+xfce4-terminal --hold --command="tail -f $HOME/pipewire_output.log"
+EOF
+
+
+echo "debug2"
 chmod +x /home/$USERNAME/Desktop/runme.sh
+chmod +x /home/$USERNAME/Desktop/soundlog.sh
+chmod +x /home/$USERNAME/Desktop/sound_en.sh
+chmod +x /home/$USERNAME/Desktop/startaudio.sh
 echo "debug2.1"
 #sudo chown -R $USERNAME:user /opt/venv
 echo "debug2.2"
@@ -42,26 +63,25 @@ echo "debug2.3"
 sudo chown -R $USERNAME:user /testrunnerapp
 echo "debug2.4"
 sudo chown -R $USERNAME:user /home/user
-
 echo "debug3"
-
 
 # start xorg as user
 sudo -u "$USERNAME" Xorg :10 -noreset -nolisten tcp -ac &
 
-# wait for x to be avail
+
+# for rdp pulseaudio
+echo 'export XDG_RUNTIME_DIR=/run/user/1001' >> /home/user/.bashrc
+echo 'export XDG_RUNTIME_DIR=/run/user/1001' >> /home/user/.profile
+sed -i 's/rdpsnd=false/rdpsnd=true/' /etc/xrdp/xrdp.ini
+USER_ID=$(id -u "$USERNAME")
+mkdir -p /run/user/$USER_ID
+chown "$USERNAME:$USERNAME" /run/user/$USER_ID
+chmod 700 /run/user/$USER_ID
+
+# wait for x to start
 while [ ! -e /tmp/.X11-unix/X10 ]; do sleep 1; done
 chown "$USERNAME":"$USERNAME" /tmp/.X11-unix/X10
 
-# start xfce as user 
-DISPLAY=:10 xhost +SI:localuser:"$USERNAME"
-su - "$USERNAME" -c "export DISPLAY=:10; startxfce4 &"
-
-# wait for xfce to start
-sleep 3
-
-# start python test runner in background of users xorg session
-su - "$USERNAME" -c 'export DISPLAY=:10; xfce4-terminal --hold --command="bash -c '\''source /opt/venv/bin/activate && python3 /testrunnerapp/app.py'\''" &'
 
 # start xrdp service
 echo -e "starting xrdp services...\n"
