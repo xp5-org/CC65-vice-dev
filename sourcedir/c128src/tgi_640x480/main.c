@@ -88,7 +88,6 @@ int x, y, v, intensity, step_v;
     tgi_line(540, 380, 100, 380);
     tgi_line(100, 380, 100, 100);
 
-    // custom method - faster gradient fill
     fast_vdc_gradient(0x0000);
 
 

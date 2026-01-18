@@ -23,7 +23,7 @@ register_testfile(
     id="PET text print",
     types=["build"],
     system="PET",
-    platform="Graphics",
+    platform="Text Printing",
 )(sys.modules[__name__])
 
 

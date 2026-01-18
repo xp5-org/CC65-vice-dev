@@ -1,9 +1,10 @@
 import sys
 import os
 import time
-import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
+# auto import /mytests dir as modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
+TESTSRC_TESTLISTDIR = "/testsrc/mytests"
 TESTSRC_BASEDIR = "/testsrc"
 TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
 
@@ -15,52 +16,37 @@ if TESTSRC_HELPERDIR  not in sys.path:
 from apphelpers import register_testfile, register_buildtest
 from vicehelpers import send_c128_command, ViceInstance, next_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
-from vicehelpers import assemble_object
 VICE_IP = "127.0.0.1"
 
 
-
 register_testfile(
-    id="C128-VDC2.tgi 640x480",
+    id="C128 Text 80 Col",
     types=["build"],
     system="C128",
-    platform="Graphics",
+    platform="Text Printing",
 )(sys.modules[__name__])
 
 
-
-progname = "tgi_640x480"
 archtype = 'c128'
-src_dir = '/testsrc/sourcedir/c128src/' + progname
-out_dir = src_dir + "/output"
+src_dir = '/testsrc/sourcedir/c128src/textprint80col'
+out_dir = src_dir + '/output'
 
 
-
-@register_buildtest("build 1 - C128 TGI 648x480")
-def build1_compile(context):
-    progname = "tgi_640x480"
-    archtype = 'c128'
-    src_dir = 'sourcedir/c128src/' + progname
-    out_dir = src_dir + "/output"
+@register_buildtest("build 1 - testprog")
+def test1_c128(context):
+    progname = "text80col" 
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, "main.c")
+    source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
     obj_file    = os.path.join(out_dir, progname + "main.o")
-    prg_file    = os.path.join(out_dir, progname + ".prg")
+    prg_file    = os.path.join(out_dir, progname + "main.prg")
     d64_file    = os.path.join(out_dir, progname + ".d64")
-    # driver path info
-    driver_ser = os.path.join(src_dir, "c128-vdc2.tgi")
-    driver_s   = os.path.join(out_dir, "c128-vdc2.s")
-    driver_o   = os.path.join(out_dir, "c128-vdc2.o")
-    driver_label = "_c128_640x480"
 
     log = []
     steps = [
         (compile_cc65, source_file, asm_file, archtype),
         (assemble_ca65, asm_file, obj_file, archtype),
-        (assemble_object, driver_ser, driver_s, driver_label),
-        (assemble_ca65, driver_s, driver_o, archtype),
-        (link_ld65, [obj_file, driver_o], prg_file, archtype),
+        (link_ld65, obj_file, prg_file, archtype),
         (create_blank_d64, d64_file),
         (format_and_copyd64, d64_file, prg_file),
     ]
@@ -75,12 +61,11 @@ def build1_compile(context):
     return True, "\n".join(log)
 
 
-
 @register_buildtest("Build 3 - start c128 vice instance")
 def test2_c128(context):
     archtype = 'c128'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/tgi_640x480.d64"
+    disk = out_dir + "/text80col.d64"
     config = src_dir + "/c128_viceconf.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
@@ -105,6 +90,7 @@ def test2_c128(context):
     return True, "\n".join(log)
 
 
+
 @register_buildtest("Build 4 - send RUN")
 def test3_c128(context):
     log = []
@@ -119,53 +105,43 @@ def test3_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - screenshot after boot command")
-def build4_screenshot_both(context):
+@register_buildtest("Build 5 - screenshot after boot command")
+def test4_c128(context):
     log = []
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
+    for name in ["vice1"]:
+        instance = context.get(name)
+        if instance:
             print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshotc128(test_step=4, window="40col")
             success = instance.take_screenshotc128(test_step=4, window="80col")
             print(f"Screenshot for {name} taken: {success}")
-            log.append(f"Screenshot for {name} taken: {success}")
-    if not log:
-        print("No ViceInstances found in context")
-        log.append("No ViceInstances found in context")
+        else:
+            print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 5 - screenshot after program start")
-def build5_screenshot_both(context):
-    name, port = next_vice_instance(context)
+@register_buildtest("Build 6 - screenshot after program start")
+def test5_c128(context):
     log = []
-    time.sleep(250)  # takes a long time to laod the program
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
+    time.sleep(5) #replace with some OCR logic or something
+    for name in ["vice1"]:
+        instance = context.get(name)
+        if instance:
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshotc128(test_step=6, window="40col")
-            success = instance.take_screenshotc128(test_step=6, window="80col")
+            success = instance.take_screenshotc128(test_step=5, window="40col")
+            success = instance.take_screenshotc128(test_step=5, window="80col")
             print(f"Screenshot for {name} taken: {success}")
-            log.append(f"Screenshot for {name} taken: {success}")
-    if not log:
-        print("No ViceInstances found in context")
-        log.append("No ViceInstances found in context")
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-    
-    context[name] = instance
+        else:
+            print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
 
-
-@register_buildtest("Build 6 - terminate all")
-def build6_stopallvice(context):
+@register_buildtest("Build 8 - terminate all")
+def test6_c128(context):
     log = []
     print("waiting 3s before teardown")
-    time.sleep(3)
+    time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

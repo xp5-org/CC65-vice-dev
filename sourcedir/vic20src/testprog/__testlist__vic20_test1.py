@@ -23,7 +23,7 @@ register_testfile(
     id="vic20 text pattern",
     types=["build"],
     system="vic20",
-    platform="Graphics",
+    platform="Text Printing",
 )(sys.modules[__name__])
 
 

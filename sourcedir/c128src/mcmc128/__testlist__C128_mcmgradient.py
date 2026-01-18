@@ -1,12 +1,11 @@
 import sys
 import os
 import time
+import threading
 
-# auto import /mytests dir as modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
-TESTSRC_TESTLISTDIR = "/testsrc/mytests"
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /testsrc/mytests dir as modules
+TESTSRC_BASEDIR = "/testsrc"                # root dir of git repo vice-specific test src
+TESTSRC_HELPERDIR = "/testsrc/pyhelpers"    # vicehelpers.py lives here
 
 # make app helpers dir visible
 if TESTSRC_HELPERDIR  not in sys.path:
@@ -14,27 +13,27 @@ if TESTSRC_HELPERDIR  not in sys.path:
 
 
 from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_c128_command, ViceInstance, next_vice_instance
+from vicehelpers import send_c128_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
 
 register_testfile(
-    id="C128 text print",
+    id="C128 MCM Gradient",
     types=["build"],
     system="C128",
     platform="Graphics",
 )(sys.modules[__name__])
 
 
+progname = "mcmc128"
 archtype = 'c128'
-src_dir = '/testsrc/sourcedir/c128src/textprint'
-out_dir = src_dir + '/output'
+src_dir = 'sourcedir/c128src/' + progname
+out_dir = src_dir + "/output"
 
 
-@register_buildtest("build 1 - testprog")
-def test1_c128(context):
-    progname = "testprog"
+@register_buildtest("build 1 - C128 MCM")
+def build1_cuberotate(context):
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -61,85 +60,74 @@ def test1_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start c128 vice instance")
-def test2_c128(context):
+
+@register_buildtest("Build 2 - start C128 mcm")
+def build2_launch_cuberotate(context):
     archtype = 'c128'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/testprog.d64"
-    config = src_dir + "/c128_viceconf.cfg"
+    disk = out_dir + "/mcmc128.d64"
+    config = src_dir + "/vice_nosound.cfg"
     
     instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
     log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
-
-    started = instance.start()
-    if not started:
-        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+    
+    success, log = launch_vice_instance(instance)
+    if not success:
         context["abort"] = True
         return False, "\n".join(log)
-
-    time.sleep(3)  # wait for boot
-
-    if not instance.wait_for_ready():
-        log.append(f"{name} did not become ready on port {port}")
-        log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-        return False, "\n".join(log)
-
+    
     context[name] = instance
-    log.append(f"{name} is ready")
-    log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
 
 
 
-@register_buildtest("Build 4 - send RUN")
-def test3_c128(context):
+
+@register_buildtest("Build 3 - send RUN")
+def buil3_send_run(context):
     log = []
     for name in ["vice1"]:
         try:
-            success, output = send_c128_command(context, name, 'LOAD "*",8')
+            inst = context[name]
+
+            #inst.activate_40col()
+
+            success, output = send_c128_command(context, name, 'LOAD "*",8\n')
             time.sleep(3)
-            success, output = send_c128_command(context, name, "RUN")
+            success, output = send_c128_command(context, name, "RUN\n")
+
             log.append(f"Sent RUN to {name}:\n{output}")
         except Exception as e:
             log.append(f"Failed to send to {name}: {e}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after boot command")
-def test4_c128(context):
-    log = []
-    for name in ["vice1"]:
-        instance = context.get(name)
-        if instance:
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=4)
-            print(f"Screenshot for {name} taken: {success}")
-        else:
-            print(f"No ViceInstance found for {name}")
-    return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - screenshot after program start")
-def test5_c128(context):
+
+@register_buildtest("Build 5 - screenshot after program start")
+def build5_screenshot_both(context):
     log = []
-    time.sleep(5) #replace with some OCR logic or something
-    for name in ["vice1"]:
-        instance = context.get(name)
-        if instance:
+    time.sleep(8)  # takes a long time to laod the program
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
+            #success = instance.take_screenshot(test_step=5)
+            success = instance.take_screenshotc128(test_step=4, window="40col")
             print(f"Screenshot for {name} taken: {success}")
-        else:
-            print(f"No ViceInstance found for {name}")
+            log.append(f"Screenshot for {name} taken: {success}")
+    if not log:
+        print("No ViceInstances found in context")
+        log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
 
 
-@register_buildtest("Build 8 - terminate all")
-def test6_c128(context):
+
+@register_buildtest("Build 6 - terminate all")
+def build6_stopallvice(context):
     log = []
     print("waiting 3s before teardown")
-    time.sleep(1)
+    time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")
