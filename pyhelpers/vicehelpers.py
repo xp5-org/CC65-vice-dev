@@ -219,6 +219,8 @@ class ViceInstance:
         self._output_lock = threading.Lock()
         self._output_lines = []
         self._stop_reading = threading.Event()
+        self.window_id_40 = None 
+        self.window_id_80 = None
         
 
     seen_window_ids = set()
@@ -240,9 +242,9 @@ class ViceInstance:
         self.proc.stdout.close()
         self.proc.wait()
 
+
     def start(self):
         ViceInstance.seen_window_ids.clear()
-        #base_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = "/testsrc/"
         env = os.environ.copy()
         if "DISPLAY" not in env:
@@ -274,8 +276,6 @@ class ViceInstance:
         if self.autostart_path:
             cmd += ["-autostart", self.autostart_path]
 
-        print("Starting with command:", " ".join(f'"{arg}"' if ' ' in arg else arg for arg in cmd))
-
         self.proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -284,30 +284,99 @@ class ViceInstance:
             bufsize=1,
             env=env
         )
-        # need to wait for window to be active, may need more time on a slower system
+
         time.sleep(1)
 
-        # loop to find unique x64 vice window PIDs
         self.window_id = None
-        for _ in range(10):
-            time.sleep(0.5)
-            self.window_id = self.find_window_id_by_pid(self.proc.pid)
-            if self.window_id:
-                break
+        self.window_id_40 = None
+        self.window_id_80 = None
+
+        if self.archtype == "c128":
+            for _ in range(20):
+                time.sleep(0.5)
+                wins = self._classify_c128_windows()
+                if not self.window_id_40 and "40col" in wins:
+                    self.window_id_40 = wins["40col"]
+                if not self.window_id_80 and "80col" in wins:
+                    self.window_id_80 = wins["80col"]
+                if self.window_id_40 and self.window_id_80:
+                    break
+
+            # default window is 40-column if available
+            self.window_id = self.window_id_40 or self.window_id_80
+        else:
+            for _ in range(10):
+                time.sleep(0.5)
+                self.window_id = self.find_window_id_by_pid(self.proc.pid)
+                if self.window_id:
+                    break
 
         if not self.window_id:
-            print(f"[{self.name}] Failed to get window ID, starting failed.")
-            return False  # sets fail here
-
-        print(f"[{self.name}] Window ID: {self.window_id}")
+            return False
 
         self.ready_event.set()
         self._stop_reading.clear()
-        self.thread = threading.Thread(target=self._reader, name=f"{self.name}-stdout-reader")
-        self.thread.daemon = True
+        self.thread = threading.Thread(
+            target=self._reader,
+            name=f"{self.name}-stdout-reader",
+            daemon=True
+        )
         self.thread.start()
 
         return True
+
+
+
+
+    def activate_40col(self):
+        if self.archtype != "c128":
+            return False
+        if not self.window_id_40:
+            return False
+        subprocess.run(
+            ["xdotool", "windowactivate", self.window_id_40],
+            check=True
+        )
+        return True
+
+
+    def _classify_c128_windows(self):
+        windows = {}
+        try:
+            result = subprocess.check_output(
+                ["xdotool", "search", "--pid", str(self.proc.pid)],
+                text=True
+            )
+        except subprocess.CalledProcessError:
+            return windows
+
+        candidates = []
+        for wid in result.splitlines():
+            try:
+                geom = subprocess.check_output(
+                    ["xdotool", "getwindowgeometry", "--shell", wid],
+                    text=True
+                )
+                width = None
+                for line in geom.splitlines():
+                    if line.startswith("WIDTH="):
+                        width = int(line.split("=", 1)[1])
+                        break
+                if width is None or width < 100:  # ignore tiny container windows
+                    continue
+                candidates.append((width, wid))
+            except subprocess.CalledProcessError:
+                continue
+
+        # sort descending by width, assume widest is 80col, next is 40col
+        candidates.sort(reverse=True)
+        if candidates:
+            if len(candidates) >= 1:
+                windows["80col"] = candidates[0][1]
+            if len(candidates) >= 2:
+                windows["40col"] = candidates[1][1]
+
+        return windows
 
 
 
@@ -329,19 +398,24 @@ class ViceInstance:
         if self.thread:
             self.thread.join(timeout=timeout)
 
-    def take_screenshot(self, test_step=None, filename=None):
+    def take_screenshot(self, test_step=None, filename=None, window="default"):
+        print("screenshotting window id: ", window)
         if not self.proc or self.proc.poll() is not None:
             print(f"[{self.name}] VICE process not running.")
             return False
 
-        if not self.window_id:
+
+        # determine which window to use
+        win_id = None
+        win_id = getattr(self, "window_id", None)
+        print("screenshotting window id: ", win_id)
+
+        if not win_id:
             print(f"[{self.name}] No window ID cached, cannot take screenshot.")
             return False
 
-        # base_dir = os.path.dirname(os.path.abspath(__file__))
         screenshot_base_dir = "/testrunnerapp/"
         reports_dir = os.path.join(screenshot_base_dir, "reports")
-
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
 
@@ -356,10 +430,9 @@ class ViceInstance:
         filepath = os.path.join(reports_dir, filename)
 
         try:
-            subprocess.run(["xdotool", "windowmap", self.window_id], check=True)
-            subprocess.run(["xdotool", "windowactivate", self.window_id], check=True)
-
-            subprocess.run(["import", "-window", self.window_id, filepath], check=True)
+            subprocess.run(["xdotool", "windowmap", win_id], check=True)
+            subprocess.run(["xdotool", "windowactivate", win_id], check=True)
+            subprocess.run(["import", "-window", win_id, filepath], check=True)
             print(f"[{self.name}] Screenshot saved to {filepath}")
 
             if croptheimage(filepath):
@@ -371,6 +444,64 @@ class ViceInstance:
         except subprocess.CalledProcessError as e:
             print(f"[{self.name}] Failed to take screenshot: {e}")
             return False
+
+
+    def take_screenshotc128(self, test_step=None, filename=None, window="default"):
+        if not self.proc or self.proc.poll() is not None:
+            print(f"[{self.name}] VICE process not running.")
+            return False
+
+        # determine which window to use
+        win_id = None
+        if self.archtype == "c128":
+            if window == "40col":
+                win_id = getattr(self, "window_id_40", None)
+            elif window == "80col":
+                win_id = getattr(self, "window_id_80", None)
+            else:  # default: use 40 first, then 80, then fallback
+                win_id = self.window_id_40 or self.window_id_80 or self.window_id
+        else:
+            win_id = getattr(self, "window_id", None)
+
+        print(f"[{self.name}] Screenshotting window ID: {win_id}")
+
+        if not win_id:
+            print(f"[{self.name}] No window ID cached, cannot take screenshot.")
+            return False
+
+        screenshot_base_dir = "/testrunnerapp/"
+        reports_dir = os.path.join(screenshot_base_dir, "reports")
+        if not os.path.exists(reports_dir):
+            os.makedirs(reports_dir)
+
+        self.screenshot_count += 1
+
+        if filename is None:
+            if test_step:
+                filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
+            else:
+                filename = f"screenshot-{self.name}-{self.screenshot_count}.png"
+
+        filepath = os.path.join(reports_dir, filename)
+
+        try:
+            subprocess.run(["xdotool", "windowmap", win_id], check=True)
+            subprocess.run(["xdotool", "windowactivate", win_id], check=True)
+            time.sleep(0.2)  # give X a moment to map/activate
+            subprocess.run(["import", "-window", win_id, filepath], check=True)
+            print(f"[{self.name}] Screenshot saved to {filepath}")
+
+            if croptheimage(filepath):
+                return True
+            else:
+                print(f"[{self.name}] Failed to crop screenshot")
+                return False
+
+        except subprocess.CalledProcessError as e:
+            print(f"[{self.name}] Failed to take screenshot: {e}")
+            return False
+
+
         
     def find_window_id_by_pid(self, pid):
         try:
