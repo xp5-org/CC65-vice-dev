@@ -33,8 +33,10 @@ register_testfile(
 
 projname = "randchar_rxtxpair"
 archtype = 'c64'
-projsrc_dir = 'sourcedir/c64src/' + projname
-out_dir = projsrc_dir + "/output"
+src_dir = 'sourcedir/c64src/' + projname
+out_dir = src_dir + "/output"
+d64path = out_dir + "/" + projname + ".d64"
+config = src_dir + "/vice_ip232_rxtx.cfg"
 
 
 
@@ -42,7 +44,7 @@ out_dir = projsrc_dir + "/output"
 def build1_buildrx(context):
     progname = "randchar_rx"
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(projsrc_dir, progname + ".c")
+    source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
@@ -68,11 +70,11 @@ def build1_buildrx(context):
 
 
 
-@register_buildtest("build 1 - tx client")
+@register_buildtest("build 2 - tx client")
 def build1_buildtx(context):
     progname = "randchar_tx"
     os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(projsrc_dir, progname + ".c")
+    source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
@@ -122,13 +124,10 @@ def build3_launch_rx(context):
 
 @register_buildtest("Build 4 - start RX vice instance")
 def build4_launch_rx(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/randchar_rx.d64"
-    config = projsrc_dir + "/vice_ip232_rxtx.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    disk1 = out_dir + "/randchar_rx.d64"
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk1)
+    log = [f"Launching {name} on port {port} with disk={disk1} config={config}"]
 
     started = instance.start()
     if not started:
@@ -154,15 +153,11 @@ def build4_launch_rx(context):
 
 @register_buildtest("Build 5 - start TX vice instance")
 def build5_launch_tx(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/randchar_tx.d64"
-    config = projsrc_dir + "/vice_ip232_rxtx.cfg"
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    disk2 = out_dir + "/randchar_tx.d64"
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk2)
+    log = [f"Launching {name} on port {port} with disk={disk2} config={config}"]
     
-    
-
     started = instance.start()
     if not started:
         log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
@@ -243,7 +238,7 @@ def build8_screenshot_both(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=8)
+            success = instance.take_screenshot(test_step=7)
             print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:

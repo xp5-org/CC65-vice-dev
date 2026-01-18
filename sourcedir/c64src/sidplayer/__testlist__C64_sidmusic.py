@@ -31,13 +31,13 @@ progname = "sidplayer"
 archtype = 'c64'
 src_dir = 'sourcedir/c64src/' + progname
 out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_nosound.cfg"
 
 
 @register_buildtest("build 1 - Sid music")
 def build1_compile(context):
-
     os.makedirs(out_dir, exist_ok=True)
-
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
     obj_file    = os.path.join(out_dir, progname + "main.o")
@@ -78,13 +78,9 @@ def build1_compile(context):
 
 @register_buildtest("Build 2 - start vice instance")
 def build2_launch(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/sidplayer.d64"
-    config = src_dir + "/c64-sid.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=None, autostart_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=None, autostart_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -101,12 +97,12 @@ def build3_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=4)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -115,15 +111,15 @@ def build3_screenshot_both(context):
 @register_buildtest("Build 4 - screenshot after program start")
 def build4_screenshot_both(context):
     log = []
-    time.sleep(5)  # takes a long time to laod the program
+    time.sleep(15)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -133,7 +129,7 @@ def build4_screenshot_both(context):
 @register_buildtest("Build 5 - terminate all")
 def build5_stopallvice(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

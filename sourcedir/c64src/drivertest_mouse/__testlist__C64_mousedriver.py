@@ -3,7 +3,8 @@ import os
 import time
 import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
+#auto import /mytests dir as modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
 TESTSRC_BASEDIR = "/testsrc"
 TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
 
@@ -19,7 +20,6 @@ from vicehelpers import assemble_object
 VICE_IP = "127.0.0.1"
 
 
-
 register_testfile(
     id="mousedriver",
     types=["build"],
@@ -29,17 +29,15 @@ register_testfile(
 
 
 progname = "drivertest_mouse"
-archtype = 'c64'
+archtype = "c64"
 src_dir = 'sourcedir/c64src/' + progname
 out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_nosound.cfg"
 
 
 @register_buildtest("build 1 - mouse")
 def build1_compile(context):
-    progname = "drivertest_mouse"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -76,13 +74,9 @@ def build1_compile(context):
 
 @register_buildtest("Build 2 - serial_driver")
 def build2_launch_serialtest(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = "sourcedir/c64src/drivertest_mouse/output/drivertest_mouse.d64"
-    config = "sourcedir/c64src/drivertest_mouse/mouse1.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -98,14 +92,16 @@ def build2_launch_serialtest(context):
 @register_buildtest("Build 3 - send RUN")
 def buil3_send_run(context):
     log = []
-    for name in ["vice1"]:
-        try:
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
             success, output = send_vice_command(context, name, 'LOAD "*",8\n')
             time.sleep(3)
             success, output = send_vice_command(context, name, "RUN\n")
             log.append(f"Sent RUN to {name}:\n{output}")
-        except Exception as e:
-            log.append(f"Failed to send to {name}: {e}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
+        if not log:
+            log.append(f"Failed to send to {name}")
     return True, "\n".join(log)
 
 
@@ -114,12 +110,12 @@ def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=4)
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -129,15 +125,15 @@ def build4_screenshot_both(context):
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
-    time.sleep(15)  # takes a long time to laod the program
+    time.sleep(15)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=6)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=5)
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     if not success:
         context["abort"] = True

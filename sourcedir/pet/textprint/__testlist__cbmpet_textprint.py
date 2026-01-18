@@ -27,14 +27,16 @@ register_testfile(
 )(sys.modules[__name__])
 
 
+progname = "testprog"
 archtype = 'pet'
 src_dir = '/testsrc/sourcedir/pet/textprint'
-out_dir = src_dir + '/output'
+out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_petconf.cfg"
 
 
 @register_buildtest("build 1 - testprog")
 def test1_cbmpet(context):
-    progname = "testprog"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -61,15 +63,11 @@ def test1_cbmpet(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start xpet vice instance")
+@register_buildtest("Build 2 - start xpet vice instance")
 def test2_cbmpet(context):
-    archtype = 'pet'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/testprog.d64"
-    config = src_dir + "/vice_petconf.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
 
     started = instance.start()
     if not started:
@@ -91,7 +89,7 @@ def test2_cbmpet(context):
 
 
 
-@register_buildtest("Build 4 - send RUN")
+@register_buildtest("Build 3 - send RUN")
 def test3_cbmpet(context):
     log = []
     for name in ["vice1"]:
@@ -105,40 +103,42 @@ def test3_cbmpet(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after boot command")
+@register_buildtest("Build 4 - screenshot after boot command")
 def test4_cbmpet(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=4)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - screenshot after program start")
+@register_buildtest("Build 5 - screenshot after program start")
 def test5_cbmpet(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
 
-@register_buildtest("Build 8 - terminate all")
+@register_buildtest("Build 6 - terminate all")
 def test6_cbmpet(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

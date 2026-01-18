@@ -27,14 +27,16 @@ register_testfile(
 )(sys.modules[__name__])
 
 
+progname = "text80col" 
 archtype = 'c128'
 src_dir = '/testsrc/sourcedir/c128src/textprint80col'
-out_dir = src_dir + '/output'
+out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/c128_viceconf.cfg"
 
 
 @register_buildtest("build 1 - testprog")
 def test1_c128(context):
-    progname = "text80col" 
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -61,15 +63,11 @@ def test1_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start c128 vice instance")
+@register_buildtest("Build 2 - start c128 vice instance")
 def test2_c128(context):
-    archtype = 'c128'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/text80col.d64"
-    config = src_dir + "/c128_viceconf.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
 
     started = instance.start()
     if not started:
@@ -91,7 +89,7 @@ def test2_c128(context):
 
 
 
-@register_buildtest("Build 4 - send RUN")
+@register_buildtest("Build 3 - send RUN")
 def test3_c128(context):
     log = []
     for name in ["vice1"]:
@@ -105,42 +103,47 @@ def test3_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after boot command")
+@register_buildtest("Build 4 - screenshot after boot command")
 def test4_c128(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
+            screentextoutput = instance.screentextdump(context)
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
             success = instance.take_screenshotc128(test_step=4, window="40col")
             success = instance.take_screenshotc128(test_step=4, window="80col")
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - screenshot after program start")
+@register_buildtest("Build 5 - screenshot after program start")
 def test5_c128(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+           # print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshotc128(test_step=5, window="40col")
             success = instance.take_screenshotc128(test_step=5, window="80col")
-            print(f"Screenshot for {name} taken: {success}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
+           # print(f"Screenshot for {name} taken: {success}")
         else:
-            print(f"No ViceInstance found for {name}")
+            log.append("Screenshot Failed")
     return True, "\n".join(log)
 
 
 
-@register_buildtest("Build 8 - terminate all")
+@register_buildtest("Build 6 - terminate all")
 def test6_c128(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

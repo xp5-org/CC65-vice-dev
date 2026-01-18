@@ -30,14 +30,12 @@ progname = "cuberotate"
 archtype = 'c64'
 src_dir = 'sourcedir/c64src/' + progname
 out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_nosound.cfg"
 
 
 @register_buildtest("build 1 - Cuberotate")
 def build1_cuberotate(context):
-    progname = "cuberotate"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + "main.c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -67,13 +65,9 @@ def build1_cuberotate(context):
 
 @register_buildtest("Build 2 - start cuberotate vice instance")
 def build2_launch_cuberotate(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/cuberotate.d64"
-    config = src_dir + "/vice_nosound.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -95,6 +89,8 @@ def buil3_send_run(context):
             time.sleep(3)
             success, output = send_vice_command(context, name, "RUN\n")
             log.append(f"Sent RUN to {name}:\n{output}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
         except Exception as e:
             log.append(f"Failed to send to {name}: {e}")
     return True, "\n".join(log)
@@ -105,12 +101,12 @@ def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=4)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -122,12 +118,12 @@ def build5_screenshot_both(context):
     time.sleep(35)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -137,7 +133,7 @@ def build5_screenshot_both(context):
 @register_buildtest("Build 6 - terminate all")
 def build6_stopallvice(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

@@ -27,9 +27,12 @@ register_testfile(
 )(sys.modules[__name__])
 
 
+progname = "testprog"
 archtype = 'vic20'
 src_dir = 'sourcedir/vic20src/testprog'
-out_dir = src_dir + '/output'
+out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_ip232_tx.cfg"
 
 
 @register_buildtest("build 1 - testprog")
@@ -78,13 +81,9 @@ def test1_vic20(context):
 
 @register_buildtest("Build 3 - start vic20 vice instance")
 def test2_vic20(context):
-    archtype = 'vic20'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/testprog.d64"
-    config = "vice_ip232_tx.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
 
     started = instance.start()
     if not started:
@@ -126,9 +125,9 @@ def test4_vic20(context):
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=4)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
@@ -141,9 +140,11 @@ def test5_vic20(context):
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
@@ -153,7 +154,7 @@ def test5_vic20(context):
 @register_buildtest("Build 8 - terminate all")
 def test6_vic20(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

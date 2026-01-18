@@ -30,6 +30,8 @@ progname = "mcmdemo1"
 archtype = 'c64'
 src_dir = 'sourcedir/c64src/' + progname
 out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_nosound.cfg"
 
 
 @register_buildtest("build 1 - Cuberotate")
@@ -63,13 +65,10 @@ def build1_cuberotate(context):
 
 @register_buildtest("Build 2 - start cuberotate vice instance")
 def build2_launch_cuberotate(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/mcmdemo1.d64"
-    config = src_dir + "/vice_nosound.cfg"
     
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=None, autostart_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -77,22 +76,6 @@ def build2_launch_cuberotate(context):
         return False, "\n".join(log)
     
     context[name] = instance
-    return True, "\n".join(log)
-
-
-
-
-@register_buildtest("Build 3 - send RUN")
-def buil3_send_run(context):
-    log = []
-    for name in ["vice1"]:
-        try:
-            success, output = send_vice_command(context, name, 'LOAD "*",8\n')
-            time.sleep(3)
-            success, output = send_vice_command(context, name, "RUN\n")
-            log.append(f"Sent RUN to {name}:\n{output}")
-        except Exception as e:
-            log.append(f"Failed to send to {name}: {e}")
     return True, "\n".join(log)
 
 

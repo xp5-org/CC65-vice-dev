@@ -105,43 +105,39 @@ void poke_bank1(unsigned int addr, unsigned char val) {
     *(unsigned char*)MMU_CR = RAM_0;
 }
 
+
+
 int main() {
     unsigned int x, y, i;
     unsigned char col;
-    unsigned int frame = 0;
-
+    unsigned int frame;
     __asm__("sei");
 
-    /* 1. CPU stays in Bank 0 to keep program running */
-    *(unsigned char*)MMU_CR = RAM_0;
-
-    /* 2. Tell VIC-IIe to look at RAM Bank 1 */
-    *(unsigned char*)0xD506 |= 0x40;
-
-    /* 3. VIC Bank 1 ($4000-$7FFF) */
     *(unsigned char*)0xDD00 = (*(unsigned char*)0xDD00 & 0xFC) | 0x02;
-
-    /* 4. Video Pointers */
-    *(unsigned char*)0xD018 = 0x80; 
+    *(unsigned char*)0xD018 = 0x80;
     *(unsigned char*)0xD011 = 0x3B;
     *(unsigned char*)0xD016 = 0x18;
+    *(unsigned char*)0xD021 = 0x00; 
 
     for (y = 0; y < 25; y++) {
         for (x = 0; x < 40; x++) {
             i = y * 40 + x;
+            
+            /* Pick one color for the whole tile to avoid clashing */
             col = rainbow[(x + y) % 11];
 
-            /* Color RAM is at same spot in all banks */
+            /* Set all 3 multicolor slots to the same color */
+            ((unsigned char*)SCREEN_BASE)[i] = (col << 4) | (col & 0x0F);
             ((unsigned char*)0xD800)[i] = (col & 0x0F);
-
-            /* Screen RAM is in Bank 1 */
-            poke_bank1(SCREEN_BASE + i, (col << 4) | (col & 0x0F));
         }
     }
 
-    while(1) {
+    gradient();
+while(1) {
+        /* Wait for the raster to reach the bottom of the screen to avoid flickering */
+        while (*(volatile unsigned char*)0xD012 < 250);
         rotate_colors(frame++);
     }
-
+    while(1);
     return 0;
 }

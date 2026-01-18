@@ -33,15 +33,13 @@ progname = "tgi_640x480"
 archtype = 'c128'
 src_dir = '/testsrc/sourcedir/c128src/' + progname
 out_dir = src_dir + "/output"
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/c128_viceconf.cfg"
 
 
 
 @register_buildtest("build 1 - C128 TGI 648x480")
 def build1_compile(context):
-    progname = "tgi_640x480"
-    archtype = 'c128'
-    src_dir = 'sourcedir/c128src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, "main.c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -76,15 +74,11 @@ def build1_compile(context):
 
 
 
-@register_buildtest("Build 3 - start c128 vice instance")
+@register_buildtest("Build 2 - start c128 vice instance")
 def test2_c128(context):
-    archtype = 'c128'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/tgi_640x480.d64"
-    config = src_dir + "/c128_viceconf.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
 
     started = instance.start()
     if not started:
@@ -105,7 +99,7 @@ def test2_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - send RUN")
+@register_buildtest("Build 3 - send RUN")
 def test3_c128(context):
     log = []
     for name in ["vice1"]:
@@ -124,13 +118,13 @@ def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
+            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshotc128(test_step=4, window="40col")
             success = instance.take_screenshotc128(test_step=4, window="80col")
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -140,16 +134,16 @@ def build4_screenshot_both(context):
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
-    time.sleep(250)  # takes a long time to laod the program
+    time.sleep(15)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshotc128(test_step=6, window="40col")
-            success = instance.take_screenshotc128(test_step=6, window="80col")
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshotc128(test_step=5, window="40col")
+            success = instance.take_screenshotc128(test_step=5, window="80col")
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     if not success:
         context["abort"] = True
@@ -164,7 +158,7 @@ def build5_screenshot_both(context):
 @register_buildtest("Build 6 - terminate all")
 def build6_stopallvice(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

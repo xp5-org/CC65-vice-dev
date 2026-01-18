@@ -34,15 +34,12 @@ progname = "serial_driver"
 archtype = 'c64'
 src_dir = 'sourcedir/c64src/' + progname
 out_dir = src_dir + "/output"
-
+d64path = out_dir + "/" + progname + ".d64"
+config = src_dir + "/vice_nosound.cfg"
 
 
 @register_buildtest("build 1 - serial")
 def build1_compile(context):
-    progname = "serial_driver"
-    archtype = 'c64'
-    src_dir = 'sourcedir/c64src/' + progname
-    out_dir = src_dir + "/output"
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
@@ -79,13 +76,9 @@ def build1_compile(context):
 
 @register_buildtest("Build 2 - serial_driver")
 def build2_launch_serialtest(context):
-    archtype = 'c64'
     name, port = next_vice_instance(context)
-    disk = out_dir + "/serial_driver.d64"
-    config = src_dir + "/vice_ip232_rx_tx.cfg"
-    
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk)
-    log = [f"Launching {name} on port {port} with disk={disk} config={config}"]
+    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
+    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -94,8 +87,6 @@ def build2_launch_serialtest(context):
     
     context[name] = instance
     return True, "\n".join(log)
-
-
 
 
 @register_buildtest("Build 3 - send RUN")
@@ -117,15 +108,16 @@ def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=4)
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
-
 
 
 @register_buildtest("Build 5 - screenshot after program start")
@@ -135,12 +127,14 @@ def build5_screenshot_both(context):
     time.sleep(15)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=6)
-            print(f"Screenshot for {name} taken: {success}")
+            #print(f"{name} window_id: {instance.window_id}")
+            success = instance.take_screenshot(test_step=5)
+            #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"adssdsdas{screentextoutput}")
     if not log:
-        print("No ViceInstances found in context")
+        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     if not success:
         context["abort"] = True
@@ -150,12 +144,10 @@ def build5_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-
 @register_buildtest("Build 6 - terminate all")
 def build6_stopallvice(context):
     log = []
-    print("waiting 3s before teardown")
+    #print("waiting 3s before teardown")
     time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
