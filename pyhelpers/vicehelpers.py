@@ -522,6 +522,43 @@ class ViceInstance:
         return None
 
 
+    def screentextdump(self, context, window="default"):
+        if not self.proc or self.proc.poll() is not None:
+            return None
+
+        cmd = "sc"
+        if self.archtype == "c128":
+            if window == "40col":
+                cmd = "sc vic"
+            elif window == "80col":
+                cmd = "sc vdc"
+
+        output = send_single_command(context, self.name, cmd)
+        
+        if not output:
+            print("ERROR NO SC OUTPUT FOUND")
+            return ""
+
+        lines = output.splitlines()
+        cleaned = []
+        for line in lines:
+            # Skip monitor prompts and empty lines
+            if "(C$:" in line or "---" in line or not line.strip():
+                continue
+            
+            # Remove the address prefix (e.g., "*C:06d0 ")
+            if line.startswith("*C:"):
+                line = line[8:]
+            
+            if line.strip().startswith(">") or line.strip() == cmd:
+                continue
+                
+            cleaned.append(line.rstrip())
+
+        return "\n".join(cleaned)
+
+
+
 def croptheimage(image_path):
     try:
         img = Image.open(image_path)
