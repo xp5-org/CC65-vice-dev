@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <cbm.h>
 
+// this is B&W dithered example
+
 #define BITMAP_BASE 0x4000
 #define SCREEN_BASE 0x6000
 

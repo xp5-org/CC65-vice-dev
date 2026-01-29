@@ -759,17 +759,17 @@ void main(void) {
 
   while (1) { j++;
        //     printf("%c", j);
-    (*(char*)0xDB84) = 2;
-    (*(char*)0xDB85) = 2;
-    (*(char*)0xDB86) = 2;
-    (*(char*)0xDB87) = 2;
-    (*(char*)0xDB88) = 2;
+    // (*(char*)0xDB84) = 2;
+    // (*(char*)0xDB85) = 2;
+    // (*(char*)0xDB86) = 2;
+    // (*(char*)0xDB87) = 2;
+    // (*(char*)0xDB88) = 2;
              
-    (*(char*)0xDB84) = 5;
-    (*(char*)0xDB85) = 5;
-    (*(char*)0xDB86) = 5;
-    (*(char*)0xDB87) = 5;
-    (*(char*)0xDB88) = 5;
+    // (*(char*)0xDB84) = 5;
+    // (*(char*)0xDB85) = 5;
+    // (*(char*)0xDB86) = 5;
+    // (*(char*)0xDB87) = 5;
+    // (*(char*)0xDB88) = 5;
     // do nothing and loop
   }
   

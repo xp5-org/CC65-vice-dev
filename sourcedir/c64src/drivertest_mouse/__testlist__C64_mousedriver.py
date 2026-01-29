@@ -1,42 +1,37 @@
-import sys
 import os
 import time
-import threading
 
-#auto import /mytests dir as modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
-
-# make app helpers dir visible
-if TESTSRC_HELPERDIR  not in sys.path:
-    sys.path.insert(0, TESTSRC_HELPERDIR )
-
-
-from apphelpers import register_testfile, register_buildtest
+from apphelpers import init_test_env, register_mytest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
-from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
-from vicehelpers import assemble_object
+from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
+CONFIG = {
+    "testname": "mousedriver",            # nickname for 
+    "projdir": "drivertest_mouse", 
+    "cmainfile": "drivertest_mouse",                # c-file progname no extenion to give to compiler
+    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
+    "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
+    "platform": "Devices",             # 2nd tier sorting category
+    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "linkerconf": "",
+    "projbasedir": "/testsrc/sourcedir/c64src/"
+}
 
-register_testfile(
-    id="mousedriver",
-    types=["build"],
-    system="C64",
-    platform="Graphics",
-)(sys.modules[__name__])
+PATHS = init_test_env(CONFIG, __name__)
+testtype = CONFIG["testtype"]
+archtype = CONFIG["archtype"]
+progname = CONFIG["cmainfile"]
+archtype = CONFIG["archtype"]
+viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
+src_dir = PATHS["src"]
+out_dir = PATHS["out"]
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
-progname = "drivertest_mouse"
-archtype = "c64"
-src_dir = 'sourcedir/c64src/' + progname
-out_dir = src_dir + "/output"
-d64path = out_dir + "/" + progname + ".d64"
-config = src_dir + "/vice_nosound.cfg"
 
 
-@register_buildtest("build 1 - mouse")
+@register_mytest(testtype, "Compile")
 def build1_compile(context):
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
@@ -44,7 +39,7 @@ def build1_compile(context):
     obj_file    = os.path.join(out_dir, progname + "main.o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
     d64_file    = os.path.join(out_dir, progname + ".d64")
-    # driver path info
+    
     driver_ser = os.path.join(src_dir, "c64-1351.mou")
     driver_s   = os.path.join(out_dir, "c64-1351.s")
     driver_o   = os.path.join(out_dir, "c64-1351.o")
@@ -71,12 +66,11 @@ def build1_compile(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 2 - serial_driver")
-def build2_launch_serialtest(context):
-    name, port = next_vice_instance(context)
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
-    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
+@register_mytest(testtype, "start vice instance")
+def startvice(context):
+    name, port = next_vice_instance(context)    
+    instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+    log = [f"Launching {name} on port {port} with disk={d64_file} config={viceconf}"]
     
     success, log = launch_vice_instance(instance)
     if not success:
@@ -87,9 +81,7 @@ def build2_launch_serialtest(context):
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 3 - send RUN")
+@register_mytest(testtype, "send RUN")
 def buil3_send_run(context):
     log = []
     for name, instance in context.items():
@@ -99,13 +91,13 @@ def buil3_send_run(context):
             success, output = send_vice_command(context, name, "RUN\n")
             log.append(f"Sent RUN to {name}:\n{output}")
             screentextoutput = instance.screentextdump(context)
-            log.append(f"adssdsdas{screentextoutput}")
+            log.append(f"{screentextoutput}")
         if not log:
             log.append(f"Failed to send to {name}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - screenshot after boot command")
+@register_mytest(testtype, "screenshot after boot command")
 def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
@@ -120,8 +112,7 @@ def build4_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 5 - screenshot after program start")
+@register_mytest(testtype, "screenshot after program start")
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
@@ -143,9 +134,7 @@ def build5_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 6 - terminate all")
+@register_mytest(testtype, "terminate all")
 def build6_stopallvice(context):
     log = []
     print("waiting 3s before teardown")

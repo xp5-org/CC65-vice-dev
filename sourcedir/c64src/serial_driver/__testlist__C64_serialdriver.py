@@ -1,44 +1,39 @@
 import sys
 import os
 import time
-import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
-TESTSRC_TESTLISTDIR = "/testsrc/mytests"
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
-
-# make app helpers dir visible
-if TESTSRC_HELPERDIR  not in sys.path:
-    sys.path.insert(0, TESTSRC_HELPERDIR )
-
-
-from apphelpers import register_testfile, register_buildtest
+from apphelpers import init_test_env, register_mytest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
 from vicehelpers import assemble_object
 VICE_IP = "127.0.0.1"
 
+CONFIG = {
+    "testname": "serial_driver",            # projects main parent dir name, also used for testlist sorting
+    "projdir": "serial_driver",
+    "cmainfile": "serial_driver",                # c-file progname no extenion to give to compiler
+    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
+    "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
+    "platform": "Devices",             # 2nd tier sorting category
+    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "linkerconf": "",
+    "projbasedir": "/testsrc/sourcedir/c64src/"
+}
+
+PATHS = init_test_env(CONFIG, __name__)
+testtype = CONFIG["testtype"]
+archtype = CONFIG["archtype"]
+progname = CONFIG["cmainfile"]
+archtype = CONFIG["archtype"]
+viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
+src_dir = PATHS["src"]
+out_dir = PATHS["out"]
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
-register_testfile(
-    id="serialdriver",
-    types=["build"],
-    system="C64",
-    platform="Devices",
-)(sys.modules[__name__])
 
 
-
-progname = "serial_driver"
-archtype = 'c64'
-src_dir = 'sourcedir/c64src/' + progname
-out_dir = src_dir + "/output"
-d64path = out_dir + "/" + progname + ".d64"
-config = src_dir + "/vice_nosound.cfg"
-
-
-@register_buildtest("build 1 - serial")
+@register_mytest(testtype, "Compile")
 def build1_compile(context):
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
@@ -73,23 +68,41 @@ def build1_compile(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 2 - serial_driver")
-def build2_launch_serialtest(context):
+@register_mytest(testtype, "start vice instance")
+def test_startviceemulator(context):
     name, port = next_vice_instance(context)
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
-    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
+    log = []
     
-    success, log = launch_vice_instance(instance)
-    if not success:
+    try:
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+        log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
+
+        started = instance.start()
+        if not started:
+            log.append(f"{name} failed to start (no window ID detected).")
+            context["abort"] = True
+            return False, "\n".join(log)
+
+    except Exception as e:
+        log.append(f"CRITICAL: Python error during startup: {str(e)}")
         context["abort"] = True
         return False, "\n".join(log)
-    
+
+    time.sleep(3)
+
+    if not instance.wait_for_ready():
+        log.append(f"{name} did not become ready on port {port}")
+        log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+        context["abort"] = True
+        return False, "\n".join(log)
+
     context[name] = instance
+    log.append(f"{name} is ready")
+    log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - send RUN")
+@register_mytest(testtype, "send RUN")
 def buil3_send_run(context):
     log = []
     for name in ["vice1"]:
@@ -103,7 +116,7 @@ def buil3_send_run(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - screenshot after boot command")
+@register_mytest(testtype, "screenshot after boot command")
 def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
@@ -120,7 +133,7 @@ def build4_screenshot_both(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after program start")
+@register_mytest(testtype, "screenshot after program start")
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
@@ -144,7 +157,7 @@ def build5_screenshot_both(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 6 - terminate all")
+@register_mytest(testtype, "terminate all")
 def build6_stopallvice(context):
     log = []
     #print("waiting 3s before teardown")

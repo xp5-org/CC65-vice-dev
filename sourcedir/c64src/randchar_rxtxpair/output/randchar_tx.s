@@ -58,8 +58,10 @@ L0132	:=	L0135+0
 
 .segment	"CODE"
 
+	ldx     #$00
 	lda     #$0B
 	sta     $DE02
+	ldx     #$00
 	lda     #$0C
 	sta     $DE03
 	rts
@@ -78,37 +80,49 @@ L0132	:=	L0135+0
 
 	jsr     pushax
 	jmp     L0116
-L0114:	jsr     ldax0sp
+L0114:	ldy     #$01
+	jsr     ldaxysp
 	sta     regsave
 	stx     regsave+1
 	jsr     incax1
-	jsr     stax0sp
 	ldy     #$00
-	lda     (regsave),y
+	jsr     staxysp
+	lda     regsave
+	ldx     regsave+1
+	ldy     #$00
+	jsr     ldauidx
 	sta     $DE00
 	jsr     decsp2
 	ldx     #$00
-	txa
-	jsr     stax0sp
-L011C:	jsr     ldax0sp
+	lda     #$00
+	ldy     #$00
+	jsr     staxysp
+L011C:	ldy     #$01
+	jsr     ldaxysp
 	cmp     #$58
 	txa
 	sbc     #$1B
 	bvc     L0123
 	eor     #$80
-L0123:	bpl     L011D
+L0123:	asl     a
+	lda     #$00
+	ldx     #$00
+	rol     a
+	jne     L011E
+	jmp     L011D
+L011E:	ldy     #$00
 	ldx     #$00
 	lda     #$01
-	jsr     addeq0sp
+	jsr     addeqysp
 	jmp     L011C
 L011D:	jsr     incsp2
-L0116:	jsr     ldax0sp
-	sta     ptr1
-	stx     ptr1+1
+L0116:	ldy     #$01
+	jsr     ldaxysp
 	ldy     #$00
-	lda     (ptr1),y
-	bne     L0114
-	jmp     incsp2
+	jsr     ldauidx
+	jne     L0114
+	jsr     incsp2
+	rts
 
 .endproc
 
@@ -157,7 +171,12 @@ L0116:	jsr     ldax0sp
 	lda     #<(L0147)
 	ldx     #>(L0147)
 	jsr     _cputs
-L014E:	jmp     L014E
+	jmp     L0149
+L0149:	jmp     L0149
+	ldx     #$00
+	lda     #$00
+	jmp     L0125
+L0125:	rts
 
 .endproc
 

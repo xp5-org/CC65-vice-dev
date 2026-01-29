@@ -1,46 +1,47 @@
-import sys
 import os
 import time
 import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
-
-# make app helpers dir visible
-if TESTSRC_HELPERDIR  not in sys.path:
-    sys.path.insert(0, TESTSRC_HELPERDIR )
-
-
-from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_vice_command, ViceInstance, next_vice_instance
-from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
-import ip232relayserver
+from apphelpers import init_test_env, register_mytest
+from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
+from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
+CONFIG = {
+    "testname": "no-driver char rx-tx pair",            # nickname for 
+    "projdir": "randchar_rxtxpair", 
+    "cmainfile": "other",                # c-file progname no extenion to give to compiler
+    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
+    "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
+    "platform": "Devices",             # 2nd tier sorting category
+    "viceconf": "vice_ip232_rxtx.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "linkerconf": "",
+    "projbasedir": "/testsrc/sourcedir/c64src/"
+}
+
+PATHS = init_test_env(CONFIG, __name__)
+testtype = CONFIG["testtype"]
+archtype = CONFIG["archtype"]
+progname = CONFIG["cmainfile"]
+archtype = CONFIG["archtype"]
+viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
+src_dir = PATHS["src"]
+out_dir = PATHS["out"]
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 #this is to track if the relay server is already started or not
+import ip232relayserver
 relay_started = False
 relay_lock = threading.Lock()
 
-
-register_testfile(
-    id="no-driver char rx-tx pair",
-    types=["build"],
-    system="C64",
-    platform="SerialModem",
-)(sys.modules[__name__])
-
-projname = "randchar_rxtxpair"
-archtype = 'c64'
-src_dir = 'sourcedir/c64src/' + projname
-out_dir = src_dir + "/output"
-d64path = out_dir + "/" + projname + ".d64"
-config = src_dir + "/vice_ip232_rxtx.cfg"
+# unique to this test
+rxclient_d64_file  = out_dir + "/randchar_rx.d64"
+txclient_d64_file = out_dir + "/randchar_tx.d64"
 
 
 
-@register_buildtest("build 1 - rx client")
+
+@register_mytest(testtype, "compile rx client")
 def build1_buildrx(context):
     progname = "randchar_rx"
     os.makedirs(out_dir, exist_ok=True)
@@ -48,15 +49,14 @@ def build1_buildrx(context):
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
-    d64_file    = os.path.join(out_dir, progname + ".d64")
 
     log = []
     steps = [
         (compile_cc65, source_file, asm_file, archtype),
         (assemble_ca65, asm_file, obj_file, archtype),
         (link_ld65, obj_file, prg_file, archtype),
-        (create_blank_d64, d64_file),
-        (format_and_copyd64, d64_file, prg_file),
+        (create_blank_d64, rxclient_d64_file),
+        (format_and_copyd64, rxclient_d64_file, prg_file),
     ]
 
     for func, *args in steps:
@@ -69,8 +69,7 @@ def build1_buildrx(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("build 2 - tx client")
+@register_mytest(testtype, "compile tx client")
 def build1_buildtx(context):
     progname = "randchar_tx"
     os.makedirs(out_dir, exist_ok=True)
@@ -78,15 +77,14 @@ def build1_buildtx(context):
     asm_file    = os.path.join(out_dir, progname + ".s")
     obj_file    = os.path.join(out_dir, progname + ".o")
     prg_file    = os.path.join(out_dir, progname + ".prg")
-    d64_file    = os.path.join(out_dir, progname + ".d64")
 
     log = []
     steps = [
         (compile_cc65, source_file, asm_file, archtype),
         (assemble_ca65, asm_file, obj_file, archtype),
         (link_ld65, obj_file, prg_file, archtype),
-        (create_blank_d64, d64_file),
-        (format_and_copyd64, d64_file, prg_file),
+        (create_blank_d64, txclient_d64_file),
+        (format_and_copyd64, txclient_d64_file, prg_file),
     ]
 
     for func, *args in steps:
@@ -99,7 +97,7 @@ def build1_buildtx(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - start relay server")
+@register_mytest(testtype, "start relay server")
 def build3_launch_rx(context):
     print("ip232relayserver loaded:", __file__)
     print("Has start_server():", hasattr(ip232relayserver, 'start_server'))
@@ -121,21 +119,29 @@ def build3_launch_rx(context):
     return True, "\n".join(log)
 
 
+@register_mytest(testtype, "start RX vice instance")
+def test_startviceemulator(context):
+    # name, port = next_vice_instance(context)
+    _, port = next_vice_instance(context)
+    name = "rx_instance"
+    log = []
+    
+    try:
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=rxclient_d64_file)
+        log.append(f"Launching {name} on port {port} with disk={rxclient_d64_file} config={viceconf}")
 
-@register_buildtest("Build 4 - start RX vice instance")
-def build4_launch_rx(context):
-    name, port = next_vice_instance(context)
-    disk1 = out_dir + "/randchar_rx.d64"
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk1)
-    log = [f"Launching {name} on port {port} with disk={disk1} config={config}"]
+        started = instance.start()
+        if not started:
+            log.append(f"{name} failed to start (no window ID detected).")
+            context["abort"] = True
+            return False, "\n".join(log)
 
-    started = instance.start()
-    if not started:
-        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+    except Exception as e:
+        log.append(f"CRITICAL: Python error during startup: {str(e)}")
         context["abort"] = True
         return False, "\n".join(log)
-    
-    time.sleep(1) # wait for start
+
+    time.sleep(3)
 
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
@@ -143,43 +149,49 @@ def build4_launch_rx(context):
         context["abort"] = True
         return False, "\n".join(log)
 
-    context["rx_instance"] = instance
+    context[name] = instance
     log.append(f"{name} is ready")
     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 5 - start TX vice instance")
-def build5_launch_tx(context):
-    name, port = next_vice_instance(context)
-    disk2 = out_dir + "/randchar_tx.d64"
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=disk2)
-    log = [f"Launching {name} on port {port} with disk={disk2} config={config}"]
+@register_mytest(testtype, "start TX vice instance")
+def test_startviceemulator(context):
+    # name, port = next_vice_instance(context)
+    _, port = next_vice_instance(context)
+    name = "tx_instance"
+    log = []
     
-    started = instance.start()
-    if not started:
-        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+    try:
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=txclient_d64_file)
+        log.append(f"Launching {name} on port {port} with disk={txclient_d64_file} config={viceconf}")
+
+        started = instance.start()
+        if not started:
+            log.append(f"{name} failed to start (no window ID detected).")
+            context["abort"] = True
+            return False, "\n".join(log)
+
+    except Exception as e:
+        log.append(f"CRITICAL: Python error during startup: {str(e)}")
         context["abort"] = True
         return False, "\n".join(log)
 
-    time.sleep(1) # wait for start
-    
+    time.sleep(3)
+
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
         context["abort"] = True
         return False, "\n".join(log)
 
-    context["tx_instance"] = instance
+    context[name] = instance
     log.append(f"{name} is ready")
     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 6 - send RUN to all instances")
+@register_mytest(testtype, "send RUN to all instances")
 def build6_send_run(context):
     time.sleep(5)
     log = []
@@ -214,9 +226,7 @@ def build6_send_run(context):
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 7 - screenshot after boot command")
+@register_mytest(testtype, "screenshot after boot command")
 def build7_screenshot_both(context):
     log = []
     for name, instance in context.items():
@@ -231,7 +241,7 @@ def build7_screenshot_both(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 8 - screenshot after program start")
+@register_mytest(testtype, "screenshot after program start")
 def build8_screenshot_both(context):
     log = []
     time.sleep(30)  # let test run for some time
@@ -247,9 +257,7 @@ def build8_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 9 - terminate all")
+@register_mytest(testtype, "terminate all")
 def build9_stopallvice(context):
     log = []
     print("waiting 60s before teardown")
@@ -265,8 +273,7 @@ def build9_stopallvice(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 9 - terminate relay & collect logs")
+@register_mytest(testtype, "terminate relay & collect logs")
 def build9_stoprelay(context):
     log = []
     name = "relay_server"

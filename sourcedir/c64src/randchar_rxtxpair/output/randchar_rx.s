@@ -59,128 +59,139 @@ _count_str:
 .segment	"CODE"
 
 	jsr     pusha
+	ldy     #$00
 	ldx     #$00
-	lda     (sp,x)
-	jsr     pusha0
+	lda     (sp),y
+	jsr     pushax
+	ldx     #$00
 	lda     #$28
-	jsr     tosumula0
+	jsr     tosumulax
 	jsr     pushax
 	jsr     decsp1
+	ldx     #$00
 	lda     #$00
-	tay
-L01D8:	sta     (sp),y
+	ldy     #$00
+	sta     (sp),y
+L010C:	ldy     #$00
+	ldx     #$00
+	lda     (sp),y
 	cmp     #$28
-	bcs     L01D7
-	ldy     #$05
+	jsr     boolult
+	jne     L010F
+	jmp     L010D
+L010F:	ldy     #$05
 	jsr     ldaxysp
-	sta     ptr1
-	stx     ptr1+1
-	ldy     #$00
+	jsr     pushax
+	ldy     #$02
+	ldx     #$00
 	lda     (sp),y
-	tay
-	lda     (ptr1),y
-	beq     L010D
+	jsr     tosaddax
+	ldy     #$00
+	jsr     ldauidx
+	cmp     #$00
+	jsr     booleq
+	jeq     L0114
+	jmp     L010D
+L0114:	ldy     #$02
+	jsr     ldaxysp
+	jsr     pushax
+	ldx     #$04
 	lda     #$00
-	clc
-	ldy     #$01
-	adc     (sp),y
-	sta     ptr1
-	lda     #$04
-	iny
-	adc     (sp),y
-	sta     ptr1+1
-	ldy     #$00
+	jsr     tosaddax
+	jsr     pushax
+	ldy     #$02
+	ldx     #$00
 	lda     (sp),y
-	clc
-	adc     ptr1
-	ldx     ptr1+1
-	bcc     L01D0
-	inx
-L01D0:	jsr     pushax
+	jsr     tosaddax
+	jsr     pushax
 	ldy     #$07
 	jsr     ldaxysp
-	sta     ptr1
-	stx     ptr1+1
-	ldy     #$02
+	jsr     pushax
+	ldy     #$04
+	ldx     #$00
 	lda     (sp),y
-	tay
-	lda     (ptr1),y
+	jsr     tosaddax
+	ldy     #$00
+	jsr     ldauidx
 	ldy     #$00
 	jsr     staspidx
-	ldy     #$01
+	ldy     #$02
+	jsr     ldaxysp
+	jsr     pushax
+	ldx     #$D8
 	lda     #$00
-	clc
-	adc     (sp),y
-	sta     ptr1
-	lda     #$D8
-	iny
-	adc     (sp),y
-	sta     ptr1+1
-	ldy     #$00
+	jsr     tosaddax
+	jsr     pushax
+	ldy     #$02
+	ldx     #$00
 	lda     (sp),y
-	clc
-	adc     ptr1
-	ldx     ptr1+1
-	bcc     L01D1
-	inx
-L01D1:	sta     ptr1
-	stx     ptr1+1
+	jsr     tosaddax
+	jsr     pushax
+	ldx     #$00
 	lda     #$15
-	sta     (ptr1),y
+	ldy     #$00
+	jsr     staspidx
+	ldy     #$00
+	ldx     #$00
 	lda     (sp),y
+	pha
 	clc
 	adc     #$01
-	jmp     L01D8
-L010D:	tay
-L01D7:	lda     (sp),y
-	cmp     #$28
-	bcs     L0123
-	tya
-	clc
-	iny
-	adc     (sp),y
-	sta     ptr1
-	lda     #$04
-	iny
-	adc     (sp),y
-	sta     ptr1+1
 	ldy     #$00
-	lda     (sp),y
-	clc
-	adc     ptr1
-	ldx     ptr1+1
-	bcc     L01D2
-	inx
-L01D2:	sta     ptr1
-	stx     ptr1+1
-	lda     #$20
-	sta     (ptr1),y
-	tya
-	clc
-	iny
-	adc     (sp),y
-	sta     ptr1
-	lda     #$D8
-	iny
-	adc     (sp),y
-	sta     ptr1+1
-	ldy     #$00
-	lda     (sp),y
-	clc
-	adc     ptr1
-	ldx     ptr1+1
-	bcc     L01D3
-	inx
-L01D3:	sta     ptr1
-	stx     ptr1+1
-	lda     #$15
-	sta     (ptr1),y
-	lda     (sp),y
-	clc
-	adc     #$01
 	sta     (sp),y
-	jmp     L01D7
-L0123:	jmp     incsp6
+	pla
+	jmp     L010C
+L010D:	ldy     #$00
+	ldx     #$00
+	lda     (sp),y
+	cmp     #$28
+	jsr     boolult
+	jne     L0125
+	jmp     L0123
+L0125:	ldy     #$02
+	jsr     ldaxysp
+	jsr     pushax
+	ldx     #$04
+	lda     #$00
+	jsr     tosaddax
+	jsr     pushax
+	ldy     #$02
+	ldx     #$00
+	lda     (sp),y
+	jsr     tosaddax
+	jsr     pushax
+	ldx     #$00
+	lda     #$20
+	ldy     #$00
+	jsr     staspidx
+	ldy     #$02
+	jsr     ldaxysp
+	jsr     pushax
+	ldx     #$D8
+	lda     #$00
+	jsr     tosaddax
+	jsr     pushax
+	ldy     #$02
+	ldx     #$00
+	lda     (sp),y
+	jsr     tosaddax
+	jsr     pushax
+	ldx     #$00
+	lda     #$15
+	ldy     #$00
+	jsr     staspidx
+	ldy     #$00
+	ldx     #$00
+	lda     (sp),y
+	pha
+	clc
+	adc     #$01
+	ldy     #$00
+	sta     (sp),y
+	pla
+	jmp     L010D
+L0123:	jsr     incsp6
+	rts
 
 .endproc
 
@@ -194,8 +205,10 @@ L0123:	jmp     incsp6
 
 .segment	"CODE"
 
+	ldx     #$00
 	lda     #$0B
 	sta     $DE02
+	ldx     #$00
 	lda     #$0C
 	sta     $DE03
 	rts
@@ -213,10 +226,17 @@ L0123:	jmp     incsp6
 .segment	"CODE"
 
 	jsr     decsp2
-	jsr     push0
-	jsr     push0
+	ldx     #$00
+	lda     #$00
+	jsr     pushax
+	ldx     #$00
+	lda     #$00
+	jsr     pushax
+	lda     #$00
 	jsr     pusha
+	lda     #$00
 	jsr     pusha
+	lda     #$00
 	jsr     pusha
 	jsr     _clrscr
 	lda     #<(L0145)
@@ -230,45 +250,79 @@ L0123:	jmp     incsp6
 	jsr     _print_status
 	lda     #<(L014D)
 	ldx     #>(L014D)
-L01E2:	jsr     pushax
+	jsr     pushax
 	lda     #$17
 	jsr     _print_status
-L01D9:	lda     $DE01
+	jmp     L01BB
+L0150:	ldx     #$00
+	lda     $DE01
+	ldx     #$00
 	and     #$08
-	beq     L01DB
+	stx     tmp1
+	ora     tmp1
+	jeq     L0159
+	ldx     #$00
 	lda     #$01
-L01DB:	ldy     #$08
+	jmp     L015B
+L0159:	ldx     #$00
+	lda     #$00
+L015B:	ldx     #$00
+	ldy     #$08
 	sta     (sp),y
+	ldy     #$08
 	lda     (sp),y
-	beq     L01D9
+	jeq     L01BB
+	ldx     #$00
 	lda     $DE00
-	dey
-	sta     (sp),y
-	cmp     #$1C
-	beq     L01D9
-	ldy     #$00
-	lda     (sp),y
-	bne     L0165
 	ldy     #$07
+	sta     (sp),y
+	ldy     #$07
+	ldx     #$00
+	lda     (sp),y
+	cmp     #$1C
+	jsr     booleq
+	jeq     L0163
+	jmp     L01BB
+L0163:	ldy     #$00
+	ldx     #$00
+	lda     (sp),y
+	jsr     bnega
+	jeq     L0165
+	ldy     #$07
+	ldx     #$00
 	lda     (sp),y
 	cmp     #$23
-	bne     L01DC
+	jsr     booleq
+	jeq     L0167
 	ldy     #$02
+	ldx     #$00
 	lda     (sp),y
+	pha
 	clc
 	adc     #$01
+	ldy     #$02
 	sta     (sp),y
+	pla
+	ldy     #$02
+	ldx     #$00
+	lda     (sp),y
 	cmp     #$03
-	bne     L01D9
+	jsr     booleq
+	jeq     L016A
+	ldx     #$00
 	lda     #$01
 	ldy     #$00
 	sta     (sp),y
 	ldx     #$00
-	txa
+	lda     #$00
 	ldy     #$05
 	jsr     staxysp
+	ldx     #$00
+	lda     #$00
 	ldy     #$03
 	jsr     staxysp
+	ldx     #$00
+	lda     #$00
 	ldy     #$01
 	sta     (sp),y
 	lda     #<(L0175)
@@ -278,19 +332,22 @@ L01DB:	ldy     #$08
 	jsr     _print_status
 	lda     #<(L0179)
 	ldx     #>(L0179)
-	jmp     L01E2
-L01DC:	lda     #$00
+	jsr     pushax
+	lda     #$17
+	jsr     _print_status
+L016A:	jmp     L017C
+L0167:	ldx     #$00
+	lda     #$00
 	ldy     #$02
 	sta     (sp),y
-	jmp     L01D9
+L017C:	jmp     L01BB
 L0165:	ldy     #$06
-	lda     (sp),y
-	cmp     #$00
+	jsr     ldaxysp
+	cpx     #$00
 	bne     L0182
-	dey
-	lda     (sp),y
 	cmp     #$FF
-L0182:	bcs     L0180
+L0182:	jsr     boolult
+	jeq     L0180
 	ldy     #$06
 	jsr     ldaxysp
 	sta     regsave
@@ -299,33 +356,52 @@ L0182:	bcs     L0180
 	ldy     #$05
 	jsr     staxysp
 	lda     regsave
+	ldx     regsave+1
 	clc
 	adc     #<(_recv_buffer)
-	sta     ptr1
-	lda     regsave+1
+	tay
+	txa
 	adc     #>(_recv_buffer)
-	sta     ptr1+1
-	ldy     #$07
+	tax
+	tya
+	jsr     pushax
+	ldy     #$09
+	ldx     #$00
 	lda     (sp),y
 	ldy     #$00
-	sta     (ptr1),y
+	jsr     staspidx
 	ldy     #$04
 	jsr     ldaxysp
+	sta     regsave
+	stx     regsave+1
 	jsr     incax1
 	ldy     #$03
 	jsr     staxysp
+	lda     regsave
+	ldx     regsave+1
 L0180:	ldy     #$07
+	ldx     #$00
 	lda     (sp),y
 	cmp     #$24
-	jne     L01DD
+	jsr     booleq
+	jeq     L0187
 	ldy     #$01
+	ldx     #$00
 	lda     (sp),y
+	pha
 	clc
 	adc     #$01
+	ldy     #$01
 	sta     (sp),y
-	cmp     #$03
-	jne     L01B8
+	pla
+	ldy     #$01
 	ldx     #$00
+	lda     (sp),y
+	cmp     #$03
+	jsr     booleq
+	jeq     L018A
+	ldx     #$00
+	lda     #$03
 	ldy     #$05
 	jsr     subeqysp
 	ldy     #$06
@@ -333,23 +409,30 @@ L0180:	ldy     #$07
 	cmp     #$00
 	txa
 	sbc     #$01
-	bcc     L018E
+	lda     #$00
+	ldx     #$00
+	rol     a
+	jeq     L018E
 	ldx     #$00
 	lda     #$FF
 	ldy     #$05
 	jsr     staxysp
 L018E:	lda     #<(_recv_buffer)
+	ldx     #>(_recv_buffer)
 	ldy     #$05
 	clc
 	adc     (sp),y
-	sta     ptr1
-	lda     #>(_recv_buffer)
+	pha
+	txa
 	iny
 	adc     (sp),y
-	sta     ptr1+1
+	tax
+	pla
+	jsr     pushax
+	ldx     #$00
 	lda     #$00
-	tay
-	sta     (ptr1),y
+	ldy     #$00
+	jsr     staspidx
 	lda     #<(L0196)
 	ldx     #>(L0196)
 	jsr     pushax
@@ -357,8 +440,11 @@ L018E:	lda     #<(_recv_buffer)
 	jsr     _print_status
 	jsr     decsp2
 	ldx     #$00
-	txa
-L01E1:	jsr     stax0sp
+	lda     #$00
+	ldy     #$00
+	jsr     staxysp
+L0199:	ldy     #$01
+	jsr     ldaxysp
 	jsr     axulong
 	cmp     #$50
 	txa
@@ -367,12 +453,19 @@ L01E1:	jsr     stax0sp
 	sbc     #$00
 	lda     sreg+1
 	sbc     #$00
-	bcs     L019A
-	jsr     ldax0sp
+	jsr     boolult
+	jne     L019B
+	jmp     L019A
+L019B:	ldy     #$01
+	jsr     ldaxysp
 	sta     regsave
 	stx     regsave+1
 	jsr     incax1
-	jmp     L01E1
+	ldy     #$00
+	jsr     staxysp
+	lda     regsave
+	ldx     regsave+1
+	jmp     L0199
 L019A:	jsr     incsp2
 	lda     #<(_recv_buffer)
 	ldx     #>(_recv_buffer)
@@ -382,13 +475,15 @@ L019A:	jsr     incsp2
 	lda     #<(_count_str)
 	ldx     #>(_count_str)
 	jsr     pushax
+	ldx     #$00
 	lda     #$28
-	jsr     pusha0
+	jsr     pushax
 	lda     #<(L01A8)
 	ldx     #>(L01A8)
 	jsr     pushax
-	ldy     #$0C
-	jsr     pushwysp
+	ldy     #$0A
+	jsr     ldaxysp
+	jsr     pushax
 	ldy     #$08
 	jsr     _snprintf
 	lda     #<(_count_str)
@@ -396,20 +491,29 @@ L019A:	jsr     incsp2
 	jsr     pushax
 	lda     #$17
 	jsr     _print_status
+	ldx     #$00
 	lda     #$00
-	tay
+	ldy     #$00
 	sta     (sp),y
+	ldx     #$00
+	lda     #$00
 	ldy     #$02
 	sta     (sp),y
-	dey
+	ldx     #$00
+	lda     #$00
+	ldy     #$01
 	sta     (sp),y
-	tax
+	ldx     #$00
+	lda     #$00
 	ldy     #$05
 	jsr     staxysp
+	ldx     #$00
+	lda     #$00
 	ldy     #$03
 	jsr     staxysp
-	jmp     L01B8
-L01DD:	lda     #$00
+L018A:	jmp     L01B8
+L0187:	ldx     #$00
+	lda     #$00
 	ldy     #$01
 	sta     (sp),y
 L01B8:	ldy     #$06
@@ -417,7 +521,10 @@ L01B8:	ldy     #$06
 	cmp     #$FF
 	txa
 	sbc     #$00
-	jcc     L01D9
+	lda     #$00
+	ldx     #$00
+	rol     a
+	jeq     L01BB
 	lda     #<(L01BE)
 	ldx     #>(L01BE)
 	jsr     pushax
@@ -428,19 +535,33 @@ L01B8:	ldy     #$06
 	jsr     pushax
 	lda     #$17
 	jsr     _print_status
+	ldx     #$00
 	lda     #$00
-	tay
+	ldy     #$00
 	sta     (sp),y
-	tax
+	ldx     #$00
+	lda     #$00
 	ldy     #$05
 	jsr     staxysp
+	ldx     #$00
+	lda     #$00
 	ldy     #$03
 	jsr     staxysp
+	ldx     #$00
+	lda     #$00
 	ldy     #$02
 	sta     (sp),y
-	dey
+	ldx     #$00
+	lda     #$00
+	ldy     #$01
 	sta     (sp),y
-	jmp     L01D9
+L01BB:	jmp     L0150
+	ldx     #$00
+	lda     #$00
+	jmp     L013D
+L013D:	ldy     #$09
+	jsr     addysp
+	rts
 
 .endproc
 

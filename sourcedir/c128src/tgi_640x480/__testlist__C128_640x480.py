@@ -1,44 +1,38 @@
 import sys
 import os
 import time
-import threading
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #auto import /mytests dir as modules
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
-
-# make app helpers dir visible
-if TESTSRC_HELPERDIR  not in sys.path:
-    sys.path.insert(0, TESTSRC_HELPERDIR )
-
-
-from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_c128_command, ViceInstance, next_vice_instance
-from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
-from vicehelpers import assemble_object
+from apphelpers import init_test_env, register_mytest
+from vicehelpers import send_c128_command, ViceInstance, next_vice_instance, launch_vice_instance
+from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
+CONFIG = {
+    "testname": "C128-VDC2.tgi 640x480",            # nickname for 
+    "projdir": "tgi_640x480", 
+    "cmainfile": "main",                # c-file progname no extenion to give to compiler
+    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
+    "archtype": "c128",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
+    "platform": "Graphics",             # 2nd tier sorting category
+    "viceconf": "c128_viceconf.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "linkerconf": "",
+    "projbasedir": "/testsrc/sourcedir/c128src/"
+}
+
+PATHS = init_test_env(CONFIG, __name__)
+testtype = CONFIG["testtype"]
+archtype = CONFIG["archtype"]
+viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
+prg_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".prg")
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
+progname = CONFIG["cmainfile"]
+src_dir = PATHS["src"]
+out_dir = PATHS["out"]
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
-register_testfile(
-    id="C128-VDC2.tgi 640x480",
-    types=["build"],
-    system="C128",
-    platform="Graphics",
-)(sys.modules[__name__])
 
-
-
-progname = "tgi_640x480"
-archtype = 'c128'
-src_dir = '/testsrc/sourcedir/c128src/' + progname
-out_dir = src_dir + "/output"
-d64path = out_dir + "/" + progname + ".d64"
-config = src_dir + "/c128_viceconf.cfg"
-
-
-
-@register_buildtest("build 1 - C128 TGI 648x480")
+@register_mytest(testtype, "Compile")
 def build1_compile(context):
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, "main.c")
@@ -73,24 +67,32 @@ def build1_compile(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 2 - start c128 vice instance")
-def test2_c128(context):
+@register_mytest(testtype, "start vice instance")
+def test_startviceemulator(context):
     name, port = next_vice_instance(context)
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
-    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
+    log = []
+    
+    try:
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+        log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
 
-    started = instance.start()
-    if not started:
-        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+        started = instance.start()
+        if not started:
+            log.append(f"{name} failed to start (no window ID detected).")
+            context["abort"] = True
+            return False, "\n".join(log)
+
+    except Exception as e:
+        log.append(f"CRITICAL: Python error during startup: {str(e)}")
         context["abort"] = True
         return False, "\n".join(log)
 
-    time.sleep(3)  # wait for boot
+    time.sleep(3)
 
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+        context["abort"] = True
         return False, "\n".join(log)
 
     context[name] = instance
@@ -99,7 +101,7 @@ def test2_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 3 - send RUN")
+@register_mytest(testtype, "send RUN")
 def test3_c128(context):
     log = []
     for name in ["vice1"]:
@@ -113,7 +115,7 @@ def test3_c128(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - screenshot after boot command")
+@register_mytest(testtype, "screenshot after boot command")
 def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
@@ -129,8 +131,7 @@ def build4_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 5 - screenshot after program start")
+@register_mytest(testtype, "screenshot after program start")
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
@@ -153,9 +154,7 @@ def build5_screenshot_both(context):
     return True, "\n".join(log)
 
 
-
-
-@register_buildtest("Build 6 - terminate all")
+@register_mytest(testtype, "terminate all")
 def build6_stopallvice(context):
     log = []
     #print("waiting 3s before teardown")

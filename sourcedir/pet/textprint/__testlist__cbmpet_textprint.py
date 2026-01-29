@@ -2,40 +2,37 @@ import sys
 import os
 import time
 
-# auto import /mytests dir as modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) 
-TESTSRC_TESTLISTDIR = "/testsrc/mytests"
-TESTSRC_BASEDIR = "/testsrc"
-TESTSRC_HELPERDIR = "/testsrc/pyhelpers"
-
-# make app helpers dir visible
-if TESTSRC_HELPERDIR  not in sys.path:
-    sys.path.insert(0, TESTSRC_HELPERDIR )
-
-
-from apphelpers import register_testfile, register_buildtest
-from vicehelpers import send_cbmpet_text, ViceInstance, next_vice_instance
-from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
+from apphelpers import init_test_env, register_mytest
+from vicehelpers import send_cbmpet_text, ViceInstance, next_vice_instance, launch_vice_instance
+from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
+CONFIG = {
+    "testname": "PET text print",            # nickname for 
+    "projdir": "textprint", 
+    "cmainfile": "pettestprog",                # c-file progname no extenion to give to compiler
+    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
+    "archtype": "pet",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
+    "platform": "Text Printing",             # 2nd tier sorting category
+    "viceconf": "vice_petconf.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "linkerconf": "",
+    "projbasedir": "/testsrc/sourcedir/pet/"
+}
 
-register_testfile(
-    id="PET text print",
-    types=["build"],
-    system="PET",
-    platform="Text Printing",
-)(sys.modules[__name__])
+PATHS = init_test_env(CONFIG, __name__)
+testtype = CONFIG["testtype"]
+archtype = CONFIG["archtype"]
+viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
+prg_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".prg")
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
+progname = CONFIG["cmainfile"]
+src_dir = PATHS["src"]
+out_dir = PATHS["out"]
+d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
-progname = "testprog"
-archtype = 'pet'
-src_dir = '/testsrc/sourcedir/pet/textprint'
-out_dir = src_dir + "/output"
-d64path = out_dir + "/" + progname + ".d64"
-config = src_dir + "/vice_petconf.cfg"
 
-
-@register_buildtest("build 1 - testprog")
+@register_mytest(testtype, "Compile")
 def test1_cbmpet(context):
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
@@ -63,23 +60,32 @@ def test1_cbmpet(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 2 - start xpet vice instance")
-def test2_cbmpet(context):
+@register_mytest(testtype, "start vice instance")
+def test_startviceemulator(context):
     name, port = next_vice_instance(context)
-    instance = ViceInstance(name, port, archtype, config_path=config, disk_path=d64path)
-    log = [f"Launching {name} on port {port} with disk={d64path} config={config}"]
+    log = []
+    
+    try:
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+        log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
 
-    started = instance.start()
-    if not started:
-        log.append(f"{name} failed to start (no window ID detected). Abandoning test.")
+        started = instance.start()
+        if not started:
+            log.append(f"{name} failed to start (no window ID detected).")
+            context["abort"] = True
+            return False, "\n".join(log)
+
+    except Exception as e:
+        log.append(f"CRITICAL: Python error during startup: {str(e)}")
         context["abort"] = True
         return False, "\n".join(log)
 
-    time.sleep(3)  # wait for boot
+    time.sleep(3)
 
     if not instance.wait_for_ready():
         log.append(f"{name} did not become ready on port {port}")
         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+        context["abort"] = True
         return False, "\n".join(log)
 
     context[name] = instance
@@ -88,8 +94,7 @@ def test2_cbmpet(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 3 - send RUN")
+@register_mytest(testtype, "send RUN")
 def test3_cbmpet(context):
     log = []
     for name in ["vice1"]:
@@ -103,21 +108,19 @@ def test3_cbmpet(context):
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 4 - screenshot after boot command")
+@register_mytest(testtype, "screenshot after boot command")
 def test4_cbmpet(context):
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshot(test_step=4)
-            #print(f"Screenshot for {name} taken: {success}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-@register_buildtest("Build 5 - screenshot after program start")
+@register_mytest(testtype, "screenshot after program start")
 def test5_cbmpet(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
@@ -134,8 +137,7 @@ def test5_cbmpet(context):
     return True, "\n".join(log)
 
 
-
-@register_buildtest("Build 6 - terminate all")
+@register_mytest(testtype, "terminate all")
 def test6_cbmpet(context):
     log = []
     #print("waiting 3s before teardown")
