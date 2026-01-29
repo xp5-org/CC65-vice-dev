@@ -1,3 +1,5 @@
+# xrdp client logon creates new display
+# run this after client logs on, as the user
 export XDG_RUNTIME_DIR=/run/user/1001
 export PULSE_SERVER=unix:$XDG_RUNTIME_DIR/pulse/native
 

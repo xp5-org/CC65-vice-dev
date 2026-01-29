@@ -61,6 +61,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libspa-0.2-dev \
         cmake \
         # for vice make
+        texinfo \
         libgtk-3-dev \
         libglew-dev \
         libevdev-dev \
@@ -74,10 +75,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libgtk-3-dev libreadline-dev libpng-dev \
         libasound2-dev libsdl2-dev \
         libxrandr-dev libxinerama-dev libxi-dev libglew-dev \
-        wget tar dos2unix libcurl4-openssl-dev file
-    apt-get remove -y light-locker xscreensaver && \
-    apt-get autoremove -y && \
-    rm -rf /var/cache/apt /var/lib/apt/lists/*
+        wget tar dos2unix libcurl4-openssl-dev file && \
+        apt-get remove -y light-locker xscreensaver
+#    apt-get autoremove -y && \
+#    rm -rf /var/cache/apt /var/lib/apt/lists/*
 
 # install Firefox
 RUN wget -O /tmp/firefox.tar.bz2 "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" --no-check-certificate && \
@@ -93,8 +94,7 @@ RUN mkdir -p /var/run/dbus && \
     echo "xfce4-session" >> /etc/skel/.Xsession
 
 
-WORKDIR /root
-
+WORKDIR /tmp
 # build and install xa assembler
 RUN wget -O /tmp/xa-2.4.1.tar.gz https://www.floodgap.com/retrotech/xa/dists/xa-2.4.1.tar.gz && \
    tar -xzf /tmp/xa-2.4.1.tar.gz -C /tmp && \
@@ -103,36 +103,55 @@ RUN wget -O /tmp/xa-2.4.1.tar.gz https://www.floodgap.com/retrotech/xa/dists/xa-
     cp xa /usr/local/bin && \
     cd / && rm -rf /tmp/xa-2.4.1 /tmp/xa-2.4.1.tar.gz
 
-# Build VICE
-RUN export VICE_URL=$(python3 -c "import urllib.request, re; html = urllib.request.urlopen('https://vice-emu.sourceforge.io/index.html').read().decode('utf-8'); print(re.search(r'href=\"(https://sourceforge.net/projects/vice-emu/files/releases/vice-[\d\.]+\.tar\.gz/download)\"', html).group(1))") && \
+
+#Build latest VICE
+RUN set -e; \
+    CORES=${COMPILERCORES:-$(nproc)} && \
+    CORES=$((CORES / 2)) && \
+    if [ "$CORES" -lt 1 ]; then CORES=1; fi && \
+    #export CFLAGS="-g -O3 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection"; \
+    #export CPPFLAGS="-Wdate-time -D_FORTIFY_SOURCE=3"; \
+    #export LDFLAGS="-Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro"; \
+    export CFLAGS="-O3" \
+    export CXXFLAGS="-O3" \
+    export LDFLAGS="" \
+    export CXXFLAGS="$CFLAGS"; \
+    VICE_URL=$(python3 -c "import urllib.request, re; html = urllib.request.urlopen('https://vice-emu.sourceforge.io/index.html').read().decode('utf-8'); print(re.search(r'href=\"(https://sourceforge.net/projects/vice-emu/files/releases/vice-[\d\.]+\.tar\.gz/download)\"', html).group(1))") && \
     curl -L -o /tmp/vice.tar.gz "$VICE_URL" && \
     tar -xzf /tmp/vice.tar.gz -C /tmp && \
     cd /tmp/vice-* && \
-    ./configure --prefix=/usr --enable-native-gtk3ui --with-sdlsound && \
-    make -j$(($(nproc) / 2)) && \
+    ./configure \
+		--prefix=/usr \
+		--infodir=/usr/share/info \
+		--mandir=/usr/share/man \
+		--enable-html-docs \
+		--enable-native-gtk3ui \
+		--enable-x64 \
+		--disable-parsid \
+		--enable-hardsid \
+		--with-resid \
+		--enable-arch=no \
+		--enable-x64-image \
+		--with-png \
+		--with-jpeg \
+		--enable-lame \
+		--disable-ffmpeg \
+		--enable-rs232 \
+		--enable-ipv6 \
+		--with-oss && \
+    make -j$(CORES) && \
     make install && \
-    mkdir -p /usr/share/vice/C64 /usr/share/vice/C128 /usr/share/vice/PET /usr/share/vice/CBM-II /usr/share/vice/PLUS4 /usr/share/vice/C64DTV /usr/share/vice/VIC20 /usr/share/vice/DRIVES && \
-    cp /tmp/vice-*/data/C64/*.bin /usr/share/vice/C64 && \
-    cp /tmp/vice-*/data/C128/*.bin /usr/share/vice/C128 && \
-    cp /tmp/vice-*/data/C128/kern* /usr/share/vice/C128 && \
-    cp /tmp/vice-*/data/PET/*.bin /usr/share/vice/PET && \
-    cp /tmp/vice-*/data/CBM-II/*.bin /usr/share/vice/CBM-II && \
-    cp /tmp/vice-*/data/PLUS4/*.bin /usr/share/vice/PLUS4 && \
-    cp /tmp/vice-*/data/C64DTV/*.bin /usr/share/vice/C64DTV && \
-    cp /tmp/vice-*/data/VIC20/*.bin /usr/share/vice/VIC20 && \
-    cp /tmp/vice-*/data/DRIVES/*.bin /usr/share/vice/DRIVES && \
+    mkdir -p /usr/share/vice && \
+    cp -a data/* /usr/share/vice/ && \
     rm -rf /tmp/vice*
 
-
-
-
-WORKDIR /root
 
 # build cc65 , not needed can get it from apt-get
 #RUN git clone https://github.com/cc65/cc65.git && \
 #    cd cc65 && \
-#    make && \
+#    make -j$(CORES) && \
 #    make install
+
 
 # build OpenCBM
 RUN git clone https://github.com/OpenCBM/OpenCBM.git && \
@@ -144,6 +163,7 @@ RUN git clone https://github.com/OpenCBM/OpenCBM.git && \
 
 
 # create venv
+WORKDIR /root
 COPY requirements.txt /app/
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
@@ -159,19 +179,19 @@ COPY services.conf /etc/supervisor/conf.d/services.conf
 RUN mkdir -p /var/log && touch /var/log/flaskapp.out.log /var/log/flaskapp.err.log
 
 
-
-
 # build the pipewire module for xrdp audio
+WORKDIR /tmp
 RUN mkdir -p /app/pipewire-module && \
-    git clone https://github.com/neutrinolabs/pipewire-module-xrdp.git /app/pipewire-module && \
-    cd /app/pipewire-module && \
+    git clone https://github.com/neutrinolabs/pipewire-module-xrdp.git /tmp/pipewire-module && \
+    cd /tmp/pipewire-module && \
     ./bootstrap && \
     ./configure --with-module-dir=/usr/lib/x86_64-linux-gnu/pipewire-0.3 && \
-    make && \
+    make -j$(CORES) && \
     make install && \
     ldconfig
 
 
+WORKDIR /root
 COPY startaudio.sh /app/
 RUN chmod +x /app/startaudio.sh
 COPY entrypoint.sh /app/
