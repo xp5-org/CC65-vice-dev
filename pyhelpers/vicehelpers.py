@@ -19,6 +19,10 @@ base_dir = "/testsrc/"
 
 
 
+
+
+
+
 def ascii_to_petscii_c128(ascii_str, addr_start=0x0352):
     petscii_bytes = []
     for ch in ascii_str:
@@ -201,7 +205,7 @@ def launch_vice_instance(instance, boot_delay=3):
 
 
 class ViceInstance:
-    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None, autostart_path=None):
+    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None, autostart_path=None, warpmode=None):
         #base_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = "/testsrc/"
         self.name = name
@@ -221,6 +225,7 @@ class ViceInstance:
         self._stop_reading = threading.Event()
         self.window_id_40 = None 
         self.window_id_80 = None
+        self.warpmode = warpmode
         
 
     seen_window_ids = set()
@@ -269,6 +274,8 @@ class ViceInstance:
 
         cmd += ["-remotemonitor", "-remotemonitoraddress", f"127.0.0.1:{self.port}"]
 
+        if self.warpmode:
+            cmd += ["-warp"]
         if self.disk_path:
             cmd += ["-8", self.disk_path]
         if self.rom_path:
@@ -648,21 +655,33 @@ def ocr_word_find(instance, phrase, timeout=10, startx=None, starty=None, stopx=
 
 
 # CC65 disk stuff #
-def compile_cc65(source_file, output_file, archtype):
-    source_path = os.path.join(base_dir, source_file)
-    output_path = os.path.join(base_dir, output_file)
-    output_dir = os.path.dirname(output_path)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
+# def compile_cc65(source_file, output_file, archtype):
+#     source_path = os.path.join(base_dir, source_file)
+#     output_path = os.path.join(base_dir, output_file)
+#     output_dir = os.path.dirname(output_path)
+#     if not os.path.exists(output_dir):
+#         os.makedirs(output_dir, exist_ok=True)
 
 
-    if not os.path.exists(source_path):
-        return False, f"Source file not found: {source_path}"
+#     if not os.path.exists(source_path):
+#         return False, f"Source file not found: {source_path}"
 
-    cmd = ['cc65', '-O', '-t', archtype, '-o', output_path, source_path]
+#     cmd = ['cc65', '-O', '-t', archtype, '-o', output_path, source_path]
+#     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+#     success = proc.returncode == 0
+#     return success, proc.stdout
+
+
+def compile_cc65(source_file, output_file, archtype, extra_flags=None):
+    cmd = ['cc65', '-t', archtype]
+    if extra_flags:
+        cmd.extend(extra_flags)
+    cmd.extend(['-o', output_file, source_file])
+    print("compiling CC65 with command: ", cmd)
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
+
 
 
 def assemble_ca65(asm_file, obj_file, archtype):
@@ -679,7 +698,7 @@ def assemble_ca65(asm_file, obj_file, archtype):
     return success, proc.stdout
 
 
-def link_ld65(obj_file, output_file, archtype, linker_conf=None):
+def link_ld65(obj_file, output_file, archtype, linker_cfg=None):
     cc65_lib_path = "/usr/share/cc65/lib"
     if isinstance(obj_file, (list, tuple)):
         obj_files = obj_file
@@ -695,8 +714,8 @@ def link_ld65(obj_file, output_file, archtype, linker_conf=None):
 
     cmd = ['ld65']
     cmd.extend(['-L', cc65_lib_path])
-    if linker_conf is not None:
-        conf_path = os.path.join(base_dir, linker_conf)
+    if linker_cfg is not None:
+        conf_path = os.path.join(base_dir, linker_cfg)
         if not os.path.exists(conf_path):
             return False, f"Linker config not found: {conf_path}"
         cmd.extend(['-C', conf_path])
@@ -756,21 +775,60 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
     return success, proc.stdout
 
 
+
+
+import shutil
+import subprocess
+# def assemble_object(ser_file, s_file, label, base_dir=base_dir):
+#     ser_file = os.path.abspath(os.path.join(base_dir, ser_file))
+#     s_file = os.path.abspath(os.path.join(base_dir, s_file))
+
+#     out_dir = os.path.dirname(s_file)
+#     os.makedirs(out_dir, exist_ok=True)
+
+#     local_ser = os.path.join(out_dir, os.path.basename(ser_file))
+#     shutil.copyfile(ser_file, local_ser)
+
+#     cmd = [
+#         "co65",
+#         "--code-label",
+#         label,
+#         os.path.basename(local_ser)
+#     ]
+
+#     subprocess.check_call(cmd, cwd=out_dir)
+
+#     generated_s = os.path.join(out_dir, os.path.splitext(os.path.basename(local_ser))[0] + ".s")
+#     if generated_s != s_file:
+#         os.replace(generated_s, s_file)
+
+#     return True, s_file
+
+
 def assemble_object(ser_file, s_file, label, base_dir=base_dir):
     ser_file = os.path.abspath(os.path.join(base_dir, ser_file))
-    s_file   = os.path.abspath(os.path.join(base_dir, s_file))
+    s_file = os.path.abspath(os.path.join(base_dir, s_file))
+
+    out_dir = os.path.dirname(s_file)
+    os.makedirs(out_dir, exist_ok=True)
+
+    local_ser = os.path.join(out_dir, os.path.basename(ser_file))
+    shutil.copyfile(ser_file, local_ser)
 
     cmd = [
         "co65",
         "--code-label",
         label,
-        ser_file
+        os.path.basename(local_ser)
     ]
-    subprocess.check_call(cmd)
 
-    # co65 outputs .s next to .ser by default
-    generated_s = os.path.splitext(ser_file)[0] + ".s"
-    if generated_s != s_file:
-        os.rename(generated_s, s_file)
+    proc = subprocess.run(cmd, cwd=out_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    success = proc.returncode == 0
 
-    return True, s_file
+    generated_s = os.path.join(out_dir, os.path.splitext(os.path.basename(local_ser))[0] + ".s")
+    if success and generated_s != s_file:
+        os.replace(generated_s, s_file)
+
+    return success, proc.stdout
+
+
