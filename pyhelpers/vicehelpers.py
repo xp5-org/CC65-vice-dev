@@ -1,10 +1,11 @@
 import time
-import os
+import os, sys
 import subprocess
 import socket
 import threading
 import signal
 import pytesseract
+import re
 from PIL import Image
 
 
@@ -406,6 +407,16 @@ class ViceInstance:
             self.thread.join(timeout=timeout)
 
     def take_screenshot(self, test_step=None, filename=None, window="default"):
+        # test
+        _helperdir = "/testrunnersrc/pyhelpers"
+        if _helperdir not in sys.path:
+            sys.path.insert(0, _helperdir)
+        from appstate import progress_state
+        stepnum = progress_state.step
+        stepnum = re.match(r'\d+', stepnum).group(0)
+        if not test_step:
+            test_step = stepnum
+        # test
         print("screenshotting window id: ", window)
         if not self.proc or self.proc.poll() is not None:
             print(f"[{self.name}] VICE process not running.")
@@ -454,6 +465,16 @@ class ViceInstance:
 
 
     def take_screenshotc128(self, test_step=None, filename=None, window="default"):
+        # test
+        _helperdir = "/testrunnersrc/pyhelpers"
+        if _helperdir not in sys.path:
+            sys.path.insert(0, _helperdir)
+        from appstate import progress_state
+        stepnum = progress_state.step
+        stepnum = re.match(r'\d+', stepnum).group(0)
+        if not test_step:
+            test_step = stepnum
+        # test
         if not self.proc or self.proc.poll() is not None:
             print(f"[{self.name}] VICE process not running.")
             return False
@@ -533,27 +554,36 @@ class ViceInstance:
         if not self.proc or self.proc.poll() is not None:
             return None
 
-        cmd = "sc"
+        win_id = None
         if self.archtype == "c128":
             if window == "40col":
-                cmd = "sc vic"
+                win_id = getattr(self, "window_id_40", None)
             elif window == "80col":
-                cmd = "sc vdc"
+                win_id = getattr(self, "window_id_80", None)
+            else:
+                win_id = self.window_id_40 or self.window_id_80 or self.window_id
+        else:
+            win_id = getattr(self, "window_id", None)
 
+        if win_id:
+            try:
+                subprocess.run(["xdotool", "windowactivate", win_id], check=True)
+                time.sleep(0.2)
+            except subprocess.CalledProcessError:
+                print(f"[{self.name}] Failed to activate window {win_id}")
+
+        cmd = "sc"
         output = send_single_command(context, self.name, cmd)
         
         if not output:
-            print("ERROR NO SC OUTPUT FOUND")
             return ""
 
         lines = output.splitlines()
         cleaned = []
         for line in lines:
-            # Skip monitor prompts and empty lines
             if "(C$:" in line or "---" in line or not line.strip():
                 continue
             
-            # Remove the address prefix (e.g., "*C:06d0 ")
             if line.startswith("*C:"):
                 line = line[8:]
             
@@ -563,6 +593,7 @@ class ViceInstance:
             cleaned.append(line.rstrip())
 
         return "\n".join(cleaned)
+
 
 
 

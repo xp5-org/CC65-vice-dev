@@ -1,4 +1,4 @@
-import sys
+import sys, re
 import os
 import time
 
@@ -110,11 +110,15 @@ def test3_cbmpet(context):
 
 @register_mytest(testtype, "screenshot after boot command")
 def test4_cbmpet(context):
+    stepnum = progress_state.step
+    stepnum = re.match(r'\d+', stepnum).group(0)
+    print("MYTESTDEBUG: FOUND STEPNUM: ", stepnum)
+
     log = []
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            success = instance.take_screenshot(test_step=4)
+            success = instance.take_screenshot()
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
@@ -127,9 +131,7 @@ def test5_cbmpet(context):
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
             screentextoutput = instance.screentextdump(context)
             log.append(f"adssdsdas{screentextoutput}")
         else:
@@ -140,8 +142,6 @@ def test5_cbmpet(context):
 @register_mytest(testtype, "terminate all")
 def test6_cbmpet(context):
     log = []
-    #print("waiting 3s before teardown")
-    time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

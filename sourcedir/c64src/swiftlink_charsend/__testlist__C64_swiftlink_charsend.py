@@ -144,12 +144,9 @@ def build4_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
-        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
 
@@ -161,9 +158,7 @@ def build5_screenshot_both(context):
     time.sleep(15)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=6)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
         print("No ViceInstances found in context")
@@ -179,8 +174,6 @@ def build5_screenshot_both(context):
 @register_mytest(testtype, "terminate all")
 def build6_stopallvice(context):
     log = []
-    #print("waiting 3s before teardown")
-    time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

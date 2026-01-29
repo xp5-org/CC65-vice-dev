@@ -105,21 +105,21 @@ def test_startviceemulator(context):
     return True, "\n".join(log)
 
 
-# @register_mytest(testtype, "send RUN")
-# def test3_c128(context):
-#     log = []
-#     for name, instance in context.items():
-#         if isinstance(instance, ViceInstance):
-#             success, output = send_c128_command(context, name, 'LOAD "*",8')
-#             time.sleep(3)
-#             success, output = send_c128_command(context, name, "RUN")
-#             log.append(f"Sent RUN to {name}:\n{output}")
-#             screentextoutput = instance.screentextdump(context)
-#             log.append(f"adssdsdas{screentextoutput}")
-#     if not log:
-#         print("No ViceInstances found in context")
-#         log.append("No ViceInstances found in context")
-#     return True, "\n".join(log)
+@register_mytest(testtype, "send RUN")
+def test3_c128(context):
+    log = []
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
+            success, output = send_c128_command(context, name, 'LOAD "*",8')
+            time.sleep(3)
+            success, output = send_c128_command(context, name, "RUN")
+            log.append(f"Sent RUN to {name}:\n{output}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"{screentextoutput}")
+    if not log:
+        print("No ViceInstances found in context")
+        log.append("No ViceInstances found in context")
+    return True, "\n".join(log)
 
 
 @register_mytest(testtype, "screenshot after boot command")
@@ -128,39 +128,77 @@ def test4_c128(context):
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            #print(f"{name} window_id: {instance.window_id}")
             success = instance.take_screenshotc128(window="40col")
             success = instance.take_screenshotc128(window="80col")
             screentextoutput = instance.screentextdump(context)
-            log.append(f"adssdsdas{screentextoutput}")
-            #print(f"Screenshot for {name} taken: {success}")
+            log.append(f"{screentextoutput}")
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
-@register_mytest(testtype, "screenshot after program start")
-def test5_c128(context):
+
+@register_mytest(testtype, "screen text check")
+def filewrite_check(context):
     log = []
-    time.sleep(5) #replace with some OCR logic or something
-    for name in ["vice1"]:
-        instance = context.get(name)
-        if instance:
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshotc128(window="40col")
-            success = instance.take_screenshotc128(window="80col")
-            screentextoutput = instance.screentextdump(context)
-            log.append(f"adssdsdas{screentextoutput}")
-            #print(f"Screenshot for {name} taken: {success}")
+    abort = False
+
+    for name, instance in context.items():
+        if not isinstance(instance, ViceInstance):
+            continue
+
+        attempt = 0
+        screentext = ""
+        found_status = False
+
+        while attempt < 10:
+            screentext = instance.screentextdump(context, window="40col")
+            screentext = screentext.lower()
+
+            if "FAILED" in screentext:
+                log.append(f"{name} - Screentext search in python - program start failure")
+                abort = True
+                found_status = True
+                break
+
+            if "hello" in screentext:
+                log.append(f"{name} - Screentext search in python reported success")
+                found_status = True
+                break
+
+            time.sleep(3)
+            attempt += 1
+
+        if not found_status:
+            log.append(f"{name} did not report success or failure")
+            abort = True
+
+        log.append(f"{name} screentext:\n{screentext}")
+
+        if instance.take_screenshot():
+            log.append(f"Screenshot for {name} taken")
         else:
-            print(f"No ViceInstance found for {name}")
+            log.append(f"Screenshot for {name} failed")
+            abort = True
+
+    if not log:
+        log.append("No ViceInstances found in context")
+
+    if abort:
+        context["abort"] = True
+        for name, instance in context.items():
+            if isinstance(instance, ViceInstance):
+                log.append(f"Stopping {name} on port {instance.port}")
+                instance.stop()
+        return False, "\n".join(log)
+
     return True, "\n".join(log)
+
 
 
 @register_mytest(testtype, "terminate all")
 def test6_c128(context):
     log = []
-    #print("waiting 3s before teardown")
     time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

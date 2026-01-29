@@ -30,6 +30,7 @@ d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
 
+
 @register_mytest(testtype, "Compile")
 def cc65_c64compile(context):
     archtype = CONFIG["archtype"]
@@ -126,7 +127,7 @@ def screenshotboot(context):
         if not isinstance(instance, ViceInstance):
             continue
 
-        if instance.take_screenshot(test_step=3):
+        if instance.take_screenshot():
             log.append(f"Screenshot for {name} taken")
         else:
             log.append(f"Screenshot for {name} failed")
@@ -179,7 +180,7 @@ def filewrite_check(context):
 
         log.append(f"{name} screentext:\n{screentext}")
 
-        if instance.take_screenshot(test_step=4):
+        if instance.take_screenshot():
             log.append(f"Screenshot for {name} taken")
         else:
             log.append(f"Screenshot for {name} failed")

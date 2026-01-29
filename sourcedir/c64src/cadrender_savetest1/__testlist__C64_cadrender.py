@@ -127,7 +127,7 @@ def screenshotboot(context):
         if not isinstance(instance, ViceInstance):
             continue
 
-        if instance.take_screenshot(test_step=3):
+        if instance.take_screenshot():
             log.append(f"Screenshot for {name} taken")
         else:
             log.append(f"Screenshot for {name} failed")
@@ -158,7 +158,7 @@ def filewrite_check(context):
 
         while attempt < 10:
             screentext = instance.screentextdump(context)
-            #text = screentext.lower()
+            screentext = screentext.lower() # make it all lower case, no reason to case-match
 
             if "FAILED" in screentext:
                 log.append(f"{name} - Screentext search in python - save to disk failure")
@@ -166,7 +166,7 @@ def filewrite_check(context):
                 found_status = True
                 break
 
-            if "Torroid model saved" in screentext:
+            if "torroid model saved" in screentext:
                 log.append(f"{name} - Screentext search in python reported success")
                 found_status = True
                 break
@@ -180,7 +180,7 @@ def filewrite_check(context):
 
         log.append(f"{name} screentext:\n{screentext}")
 
-        if instance.take_screenshot(test_step=4):
+        if instance.take_screenshot():
             log.append(f"Screenshot for {name} taken")
         else:
             log.append(f"Screenshot for {name} failed")

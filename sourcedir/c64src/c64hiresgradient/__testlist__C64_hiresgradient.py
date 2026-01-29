@@ -117,7 +117,7 @@ def screenshotboth1(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=4)
+            success = instance.take_screenshot()
             #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
@@ -133,7 +133,7 @@ def screenshotboth2(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
+            success = instance.take_screenshot()
             #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:

@@ -131,24 +131,20 @@ def test4_vic20(context):
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=4)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
         else:
             print(f"No ViceInstance found for {name}")
     return True, "\n".join(log)
 
 
 @register_mytest(testtype, "screenshot after program start")
-def test5_vic20(context):
+def mytest_screenshot(context):
     log = []
     time.sleep(5) #replace with some OCR logic or something
     for name in ["vice1"]:
         instance = context.get(name)
         if instance:
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
             screentextoutput = instance.screentextdump(context)
             log.append(f"adssdsdas{screentextoutput}")
         else:
@@ -157,10 +153,8 @@ def test5_vic20(context):
 
 
 @register_mytest(testtype, "terminate all")
-def test6_vic20(context):
+def mytest_terminate(context):
     log = []
-    #print("waiting 3s before teardown")
-    time.sleep(1)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             log.append(f"Stopping {name} on port {instance.port}")

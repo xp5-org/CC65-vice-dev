@@ -122,7 +122,7 @@ def build4_screenshot_both(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=4)
+            success = instance.take_screenshot()
             #print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
             screentextoutput = instance.screentextdump(context)
@@ -137,17 +137,14 @@ def build4_screenshot_both(context):
 def build5_screenshot_both(context):
     name, port = next_vice_instance(context)
     log = []
-    time.sleep(15)  # takes a long time to laod the program
+    time.sleep(15)  # takes a long time
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            #print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=5)
-            #print(f"Screenshot for {name} taken: {success}")
+            success = instance.take_screenshot()
             log.append(f"Screenshot for {name} taken: {success}")
             screentextoutput = instance.screentextdump(context)
             log.append(f"adssdsdas{screentextoutput}")
     if not log:
-        #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     if not success:
         context["abort"] = True

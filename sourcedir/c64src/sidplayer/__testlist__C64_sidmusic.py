@@ -27,6 +27,7 @@ archtype = CONFIG["archtype"]
 viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
 src_dir = PATHS["src"]
 out_dir = PATHS["out"]
+# config = PATHS["viceconf"]
 d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 
@@ -34,17 +35,13 @@ d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 @register_mytest(testtype, "Compile")
 def build1_compile(context):
-    src_dir = PATHS["src"]
-    progname = PATHS["cmainfile"]
-    out_dir = PATHS["out"]
-    config = PATHS["viceconf"]
     os.makedirs(out_dir, exist_ok=True)
     source_file = os.path.join(src_dir, progname + ".c")
     asm_file    = os.path.join(out_dir, progname + "main.s")
     obj_file    = os.path.join(out_dir, progname + "main.o")
     prg_file    = os.path.join(out_dir, progname + "main.prg")
     d64_file    = os.path.join(out_dir, progname + ".d64")
-    linkerconf  = os.path.join(src_dir, PATHS["linkerconf"])
+    linkerconf  = os.path.join(src_dir, CONFIG["linkerconf"])
     asm_include = os.path.join(src_dir, "sidplaysfx.s")
     asm_object  = os.path.join(out_dir, "sidplaysfx.o")
 
@@ -81,7 +78,7 @@ def test_startviceemulator(context):
     log = []
     
     try:
-        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+        instance = ViceInstance(name, port, archtype, config_path=viceconf, autostart_path=d64_file)
         log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
 
         started = instance.start()
@@ -114,7 +111,7 @@ def build3_screenshot_both(context):
     log = []
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            success = instance.take_screenshot(test_step=4)
+            success = instance.take_screenshot()
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
         log.append("No ViceInstances found in context")
@@ -127,7 +124,7 @@ def build4_screenshot_both(context):
     time.sleep(15)  # takes a long time to laod the program
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
-            success = instance.take_screenshot(test_step=5)
+            success = instance.take_screenshot()
             log.append(f"Screenshot for {name} taken: {success}")
     if not log:
         log.append("No ViceInstances found in context")

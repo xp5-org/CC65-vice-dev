@@ -93,7 +93,7 @@ def build4_screenshot_both(context):
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             print(f"{name} window_id: {instance.window_id}")
-            success = instance.take_screenshot(test_step=3)
+            success = instance.take_screenshot()
             print(f"Screenshot for {name} taken: {success}")
             log.append(f"Screenshot for {name} taken: {success}")
             screentextoutput = instance.screentextdump(context)
@@ -142,7 +142,7 @@ def filewrite_check(context):
 
         log.append(f"{name} screentext:\n{screentext}")
 
-        if instance.take_screenshot(test_step=4):
+        if instance.take_screenshot():
             log.append(f"Screenshot for {name} taken")
         else:
             log.append(f"Screenshot for {name} failed")
