@@ -15,7 +15,7 @@ CONFIG = {
     "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
     "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
     "platform": "Devices",             # 2nd tier sorting category
-    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "viceconf": "vice_ip232_rx_tx.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
     "linkerconf": "",
     "projbasedir": "/testsrc/sourcedir/c64src/"
 }

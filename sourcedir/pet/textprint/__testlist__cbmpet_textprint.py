@@ -1,4 +1,4 @@
-import sys, re
+import sys
 import os
 import time
 
@@ -110,10 +110,6 @@ def test3_cbmpet(context):
 
 @register_mytest(testtype, "screenshot after boot command")
 def test4_cbmpet(context):
-    stepnum = progress_state.step
-    stepnum = re.match(r'\d+', stepnum).group(0)
-    print("MYTESTDEBUG: FOUND STEPNUM: ", stepnum)
-
     log = []
     for name in ["vice1"]:
         instance = context.get(name)

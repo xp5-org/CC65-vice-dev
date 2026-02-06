@@ -2,6 +2,7 @@ import os
 import time
 import threading
 
+
 from apphelpers import init_test_env, register_mytest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
 from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
@@ -14,7 +15,7 @@ CONFIG = {
     "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
     "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
     "platform": "Devices",             # 2nd tier sorting category
-    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "viceconf": "vice_ip232_swiftlink.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
     "linkerconf": "",
     "projbasedir": "/testsrc/sourcedir/c64src/"
 }
@@ -30,6 +31,7 @@ out_dir = PATHS["out"]
 d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 
 #this is to track if the relay server is already started or not
+import ip232relayserver
 relay_started = False
 relay_lock = threading.Lock()
 
@@ -182,7 +184,6 @@ def build6_stopallvice(context):
     if not log:
         log.append("No VICE instances found to stop.")
     return True, "\n".join(log)
-
 
 
 @register_mytest(testtype, "terminate relay & collect logs")

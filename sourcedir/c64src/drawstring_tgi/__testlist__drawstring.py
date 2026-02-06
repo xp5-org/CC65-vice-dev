@@ -3,17 +3,17 @@ import time
 
 from apphelpers import init_test_env, register_mytest
 from vicehelpers import send_vice_command, ViceInstance, next_vice_instance, launch_vice_instance
-from vicehelpers import compile_cc65, assemble_ca65, link_ld65, create_blank_d64, format_and_copyd64
+from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65, create_blank_d64, format_and_copyd64
 VICE_IP = "127.0.0.1"
 
 CONFIG = {
-    "testname": "TGI cuberotate",            # nickname for 
-    "projdir": "cuberotate", 
-    "cmainfile": "cuberotatemain",                # c-file progname no extenion to give to compiler
+    "testname": "TGI Draw String",            # nickname for 
+    "projdir": "drawstring_tgi", 
+    "cmainfile": "drawstring",                # c-file progname no extenion to give to compiler
     "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
     "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
     "platform": "Graphics",             # 2nd tier sorting category
-    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "viceconf": "vice_C64nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
     "linkerconf": "",
     "projbasedir": "/testsrc/sourcedir/c64src/"
 }
@@ -27,6 +27,7 @@ viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceco
 src_dir = PATHS["src"]
 out_dir = PATHS["out"]
 d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
+
 
 
 
@@ -83,6 +84,7 @@ def cc65_c64compile(context):
     return True, "\n".join(log)
 
 
+
 @register_mytest(testtype, "start vice instance")
 def startvice(context):
     name, port = next_vice_instance(context)    
@@ -101,21 +103,16 @@ def startvice(context):
 @register_mytest(testtype, "send RUN")
 def buil3_send_run(context):
     log = []
-    for vice_name in ["vice1"]:
-        try:
-            success, output = send_vice_command(context, vice_name, 'LOAD "*",8\n')
+    for name, instance in context.items():
+        if isinstance(instance, ViceInstance):
+            success, output = send_vice_command(context, name, 'LOAD "*",8\n')
             time.sleep(3)
-            success, output = send_vice_command(context, vice_name, "RUN\n")
-            log.append(f"Sent RUN to {vice_name}:\n{output}")
-
-            for name, instance in context.items():
-                if isinstance(instance, ViceInstance):
-                    screentextoutput = instance.screentextdump(context)
-                    log.append(f"adssdsdas{screentextoutput}")
-
-        except Exception as e:
-            log.append(f"Failed to send to {vice_name}: {e}")
-
+            success, output = send_vice_command(context, name, "RUN\n")
+            log.append(f"Sent RUN to {name}:\n{output}")
+            screentextoutput = instance.screentextdump(context)
+            log.append(f"{screentextoutput}")
+        if not log:
+            log.append(f"Failed to send to {name}")
     return True, "\n".join(log)
 
 
@@ -136,8 +133,9 @@ def build4_screenshot_both(context):
 
 @register_mytest(testtype, "screenshot after program start")
 def build5_screenshot_both(context):
+    name, port = next_vice_instance(context)
     log = []
-    time.sleep(35)  # takes a long time to laod the program
+    time.sleep(15)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):
             #print(f"{name} window_id: {instance.window_id}")
@@ -147,13 +145,18 @@ def build5_screenshot_both(context):
     if not log:
         #print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
+    if not success:
+        context["abort"] = True
+        return False, "\n".join(log)
+    
+    context[name] = instance
     return True, "\n".join(log)
 
 
 @register_mytest(testtype, "terminate all")
 def build6_stopallvice(context):
     log = []
-    #print("waiting 3s before teardown")
+    print("waiting 3s before teardown")
     time.sleep(3)
     for name, instance in context.items():
         if isinstance(instance, ViceInstance):

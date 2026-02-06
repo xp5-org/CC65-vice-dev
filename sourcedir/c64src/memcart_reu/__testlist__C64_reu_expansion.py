@@ -69,8 +69,6 @@ def build1_compile(context):
     return True, "\n".join(log)
 
 
-
-
 @register_mytest(testtype, "start vice instance")
 def startvice(context):
     name, port = next_vice_instance(context)    
@@ -102,7 +100,6 @@ def build4_screenshot_both(context):
         print("No ViceInstances found in context")
         log.append("No ViceInstances found in context")
     return True, "\n".join(log)
-
 
 
 @register_mytest(testtype, "check for driver install success")
