@@ -1,15 +1,59 @@
-<!doctype html>
-<html>
+{% extends "base.html" %}
+
+{% block content %}
+
+
+
 <head>
-
-        {% include "navbar.html" %}
-
-<div>
-    <pre>{{ paths | tojson(indent=2) }}</pre>
-</div>
-
     <title>C Function Search</title>
 </head>
+
+<style>
+#results-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#results-table th:nth-child(1),
+#results-table td:nth-child(1) {
+    width: 28%;
+}
+
+#results-table th:nth-child(2),
+#results-table td:nth-child(2) {
+    width: 15%;
+}
+
+#results-table th:nth-child(3),
+#results-table td:nth-child(3) {
+    width: 3%;
+}
+
+#results-table th:nth-child(4),
+#results-table td:nth-child(4) {
+    width: 20%;
+}
+
+
+th:nth-child(5) { text-align: center; }
+td:nth-child(5) {
+    width: 35%;
+    overflow: hidden;
+}
+
+td:nth-child(5) .path-rtl {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    unicode-bidi: isolate;
+    text-align: left;
+}
+</style>
+
+
 <body>
     <input type="text" id="search" placeholder="Function name" value="{{ query }}">
     
@@ -23,7 +67,7 @@
         <label><input type="checkbox" id="orphans"> Show Orphan Checksums Only</label>
     </div>
 
-    <table id="results-table">
+    <table id="results-table" class="test-table">
         <thead>
             <tr>
                 <th>Function</th>
@@ -40,7 +84,11 @@
                 <td>{{ r.checksum }}</td>
                 <td>{{ r.args }}</td>
                 <td>{{ r.module }}</td>
-                <td>{{ r.path }}</td>
+                <!-- <td>{{ r.path }}</td> -->
+            <td>
+            <span class="path-rtl">{{ r.path }}</span>
+            </td>
+                
             </tr>
             {% endfor %}
         </tbody>
@@ -87,5 +135,6 @@ excludeCheckboxes.forEach(cb => cb.addEventListener('change', filterRows));
 
 filterRows();
 </script>
-</body>
-</html>
+
+
+{% endblock %}

@@ -1,15 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
+{% extends "base.html" %}
 
-            {% include "navbar.html" %}
+{% block content %}
 
-<div>
-    <pre>{{ paths | tojson(indent=2) }}</pre>
-</div>
-    <title>Library Search</title>
+
+
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        body { font-family: sans-serif; background: #f4f4f4; }
         .search-container { margin-bottom: 20px; }
         input { width: 100%; padding: 10px; size: 20px; }
         table { width: 100%; border-collapse: collapse; background: white; }
@@ -19,15 +15,39 @@
         .comment-row { display: none; background-color: #fff9c4; font-style: italic; }
         .comment-row td { padding: 15px; border-top: none; }
     </style>
-</head>
-<body>
 
 <div class="search-container">
     <input type="text" id="nameSearch" onkeyup="filterTable()" placeholder="Search by Name...">
     <input type="text" id="defSearch" onkeyup="filterTable()" placeholder="Search by Definition...">
 </div>
+    <style>
+/* table { width: 100%; table-layout: fixed; } */
 
-<table id="libTable">
+th:nth-child(1), td:nth-child(1) { width: 18%; }
+th:nth-child(2), td:nth-child(2) { width: 7%; }
+th:nth-child(3), td:nth-child(3) { width: 45%; }
+th:nth-child(4) { text-align: center; }
+td:nth-child(4) {
+    width: 20%;
+    overflow: hidden;
+}
+
+td:nth-child(4) .path-rtl {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    unicode-bidi: isolate;
+    text-align: left;
+}
+
+th:nth-child(5), td:nth-child(5) { width: 10%; }
+
+    </style>
+
+
+<table id="libTable" class="test-table">
     <thead>
         <tr>
             <th>Name</th>
@@ -43,7 +63,10 @@
             <td>{{ item.name }}</td>
             <td>{{ item.type }}</td>
             <td>{{ item.definition }}</td>
-            <td>{{ item.path }}</td>
+            <td>
+            <span class="path-rtl">{{ item.path }}</span>
+            </td>
+
             <td>{{ item.line }}</td>
         </tr>
         <tr id="comment-{{ loop.index }}" class="comment-row">
@@ -96,6 +119,4 @@ function toggleComment(id) {
 }
 </script>
 
-
-</body>
-</html>
+{% endblock %}
