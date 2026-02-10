@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+            {% include "navbar.html" %}
+
+<div>
+    <pre>{{ paths | tojson(indent=2) }}</pre>
+</div>
+    <title>Library Search</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .search-container { margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; size: 20px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; cursor: pointer; }
+        th { background-color: #007bff; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        .comment-row { display: none; background-color: #fff9c4; font-style: italic; }
+        .comment-row td { padding: 15px; border-top: none; }
+    </style>
+</head>
+<body>
+
+<div class="search-container">
+    <input type="text" id="nameSearch" onkeyup="filterTable()" placeholder="Search by Name...">
+    <input type="text" id="defSearch" onkeyup="filterTable()" placeholder="Search by Definition...">
+</div>
+
+<table id="libTable">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Definition</th>
+            <th>Path</th>
+            <th>LineNum</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in data %}
+        <tr onclick="toggleComment('comment-{{ loop.index }}')">
+            <td>{{ item.name }}</td>
+            <td>{{ item.type }}</td>
+            <td>{{ item.definition }}</td>
+            <td>{{ item.path }}</td>
+            <td>{{ item.line }}</td>
+        </tr>
+        <tr id="comment-{{ loop.index }}" class="comment-row">
+            <td colspan="5">
+                <strong>Parameters:</strong>
+                {% if item.params %}
+                    <ul>
+                    {% for p in item.params %}
+                        <li>{{ p.type }} {{ p.arg }}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    None
+                {% endif %}
+                <strong>Description:</strong><br>
+                {{ item.comment if item.comment else "No description available." }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function filterTable() {
+    let nameInput = document.getElementById("nameSearch").value.toUpperCase();
+    let defInput = document.getElementById("defSearch").value.toUpperCase();
+    let rows = document.getElementById("libTable").getElementsByTagName("tr");
+
+    for (let i = 1; i < rows.length; i++) {
+        if (rows[i].classList.contains('comment-row')) continue;
+
+        let nameText = rows[i].cells[0].textContent || rows[i].cells[0].innerText;
+        let defText = rows[i].cells[2].textContent || rows[i].cells[2].innerText;
+
+        if (nameText.toUpperCase().indexOf(nameInput) > -1 && defText.toUpperCase().indexOf(defInput) > -1) {
+            rows[i].style.display = "";
+        } else {
+            rows[i].style.display = "none";
+            let nextRow = rows[i].nextElementSibling;
+            if (nextRow && nextRow.classList.contains('comment-row')) {
+                nextRow.style.display = "none";
+            }
+        }
+    }
+}
+
+function toggleComment(id) {
+    let el = document.getElementById(id);
+    el.style.display = (el.style.display === "table-row") ? "none" : "table-row";
+}
+</script>
+
+
+</body>
+</html>

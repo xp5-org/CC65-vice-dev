@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+
+        {% include "navbar.html" %}
+
+<div>
+    <pre>{{ paths | tojson(indent=2) }}</pre>
+</div>
+
+    <title>C Function Search</title>
+</head>
+<body>
+    <input type="text" id="search" placeholder="Function name" value="{{ query }}">
+    
+    <div id="filters">
+        Exclude:
+        <label><input type="checkbox" class="exclude" value="main" checked> main</label>
+        <label><input type="checkbox" class="exclude" value="if" checked> if</label>
+        <label><input type="checkbox" class="exclude" value="while" checked> while</label>
+        <label><input type="checkbox" class="exclude" value="printf" checked> printf</label>
+        | 
+        <label><input type="checkbox" id="orphans"> Show Orphan Checksums Only</label>
+    </div>
+
+    <table id="results-table">
+        <thead>
+            <tr>
+                <th>Function</th>
+                <th>checksum</th>
+                <th>Args</th>
+                <th>Module</th>
+                <th>Source Path</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results|sort(attribute='function') %}
+            <tr>
+                <td>{{ r.function }}</td>
+                <td>{{ r.checksum }}</td>
+                <td>{{ r.args }}</td>
+                <td>{{ r.module }}</td>
+                <td>{{ r.path }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+<script>
+const input = document.getElementById('search');
+const orphanCheckbox = document.getElementById('orphans');
+const rows = Array.from(document.querySelectorAll('#results-table tbody tr'));
+const excludeCheckboxes = Array.from(document.querySelectorAll('.exclude'));
+
+const checksumCounts = rows.reduce((acc, row) => {
+    const sum = row.cells[1].textContent;
+    acc[sum] = (acc[sum] || 0) + 1;
+    return acc;
+}, {});
+
+function filterRows() {
+    const query = input.value.toLowerCase();
+    const excluded = excludeCheckboxes.filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
+    const orphansOnly = orphanCheckbox.checked;
+
+    rows.forEach(row => {
+        const func = row.cells[0].textContent.toLowerCase();
+        const checksum = row.cells[1].textContent;
+        
+        let visible = true;
+
+        if (excluded.includes(func)) {
+            visible = false;
+        } else if (orphansOnly && checksumCounts[checksum] > 1) {
+            visible = false;
+        } else if (query && !func.includes(query)) {
+            visible = false;
+        }
+
+        row.style.display = visible ? '' : 'none';
+    });
+}
+
+input.addEventListener('input', filterRows);
+orphanCheckbox.addEventListener('change', filterRows);
+excludeCheckboxes.forEach(cb => cb.addEventListener('change', filterRows));
+
+filterRows();
+</script>
+</body>
+</html>

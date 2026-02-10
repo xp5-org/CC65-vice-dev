@@ -8,6 +8,13 @@ import pytesseract
 import re
 from PIL import Image
 
+import os
+from PIL import Image
+from pyzbar.pyzbar import decode
+import cv2
+import os
+from PIL import Image, ImageOps
+from pyzbar.pyzbar import decode
 
 VICE_BASE_PORT = 65501
 assigned_window_ids = set()
@@ -334,8 +341,6 @@ class ViceInstance:
         return True
 
 
-
-
     def activate_40col(self):
         if self.archtype != "c128":
             return False
@@ -387,12 +392,10 @@ class ViceInstance:
         return windows
 
 
-
-
-
     def wait_for_ready(self, timeout=15):
         self.ready_event.wait(timeout)
         return wait_for_port("127.0.0.1", self.port, timeout=timeout)
+
 
     def stop(self, timeout=5):
         if self.proc and self.proc.poll() is None:
@@ -405,6 +408,7 @@ class ViceInstance:
         self._stop_reading.set()
         if self.thread:
             self.thread.join(timeout=timeout)
+
 
     def take_screenshot(self, test_step=None, filename=None, window="default"):
         # test
@@ -421,7 +425,6 @@ class ViceInstance:
         if not self.proc or self.proc.poll() is not None:
             print(f"[{self.name}] VICE process not running.")
             return False
-
 
         # determine which window to use
         win_id = None
@@ -454,7 +457,8 @@ class ViceInstance:
             print(f"[{self.name}] Screenshot saved to {filepath}")
 
             if croptheimage(filepath):
-                return True
+                #return True
+                return filepath
             else:
                 print(f"[{self.name}] Failed to crop screenshot")
                 return False
@@ -462,7 +466,7 @@ class ViceInstance:
         except subprocess.CalledProcessError as e:
             print(f"[{self.name}] Failed to take screenshot: {e}")
             return False
-
+     
 
     def take_screenshotc128(self, test_step=None, filename=None, window="default"):
         # test
@@ -528,7 +532,27 @@ class ViceInstance:
         except subprocess.CalledProcessError as e:
             print(f"[{self.name}] Failed to take screenshot: {e}")
             return False
+        
 
+    def capture_qr_string(self, test_step=None, filename=None, window="default"):
+        filepath = self.take_screenshot(test_step=test_step, filename=filename, window=window)
+        if not filepath:
+            return None
+
+        img = cv2.imread(filepath)
+        if img is None:
+            return None
+
+        detector = cv2.QRCodeDetector()
+        data, bbox, straight_qrcode = detector.detectAndDecode(img)
+
+        if not data and bbox is not None:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+            sharpened = cv2.filter2D(gray, -1, sharpen_kernel)
+            data, bbox, straight_qrcode = detector.detectAndDecode(sharpened)
+
+        return data if data else None
 
         
     def find_window_id_by_pid(self, pid):
@@ -714,7 +738,6 @@ def compile_cc65(source_file, output_file, archtype, extra_flags=None):
     return success, proc.stdout
 
 
-
 def assemble_ca65(asm_file, obj_file, archtype):
     asm_path = os.path.join(base_dir, asm_file)
     obj_path = os.path.join(base_dir, obj_file)
@@ -810,30 +833,7 @@ def format_and_copyd64(d64_name, prg_file, base_dir=base_dir):
 
 import shutil
 import subprocess
-# def assemble_object(ser_file, s_file, label, base_dir=base_dir):
-#     ser_file = os.path.abspath(os.path.join(base_dir, ser_file))
-#     s_file = os.path.abspath(os.path.join(base_dir, s_file))
 
-#     out_dir = os.path.dirname(s_file)
-#     os.makedirs(out_dir, exist_ok=True)
-
-#     local_ser = os.path.join(out_dir, os.path.basename(ser_file))
-#     shutil.copyfile(ser_file, local_ser)
-
-#     cmd = [
-#         "co65",
-#         "--code-label",
-#         label,
-#         os.path.basename(local_ser)
-#     ]
-
-#     subprocess.check_call(cmd, cwd=out_dir)
-
-#     generated_s = os.path.join(out_dir, os.path.splitext(os.path.basename(local_ser))[0] + ".s")
-#     if generated_s != s_file:
-#         os.replace(generated_s, s_file)
-
-#     return True, s_file
 
 
 def assemble_object(ser_file, s_file, label, base_dir=base_dir):
