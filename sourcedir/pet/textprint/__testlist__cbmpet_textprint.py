@@ -16,20 +16,32 @@ CONFIG = {
     "platform": "Text Printing",             # 2nd tier sorting category
     "viceconf": "vice_petconf.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
     "linkerconf": "",
-    "projbasedir": "/testsrc/sourcedir/pet/"
+    "projbasedir": "/testsrc/sourcedir/pet/",
+        "structure": {
+        "project": {
+            "_rel": "{projdir}",
+            "viceconf": "{viceconf}",
+            "src": {
+                "_rel": "src"
+            },
+            "out": {
+                "_rel": "output",
+                "prg": "{cmainfile}.prg",
+                "d64file_abs": "{cmainfile}.d64"
+            }
+        }
+    },
 }
 
 PATHS = init_test_env(CONFIG, __name__)
 testtype = CONFIG["testtype"]
 archtype = CONFIG["archtype"]
-viceconf = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"], CONFIG["viceconf"])
-prg_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".prg")
-d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
 progname = CONFIG["cmainfile"]
+viceconf = PATHS["viceconf"]
 src_dir = PATHS["src"]
 out_dir = PATHS["out"]
-d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
-
+prg_file = PATHS["prg"]
+d64_file = PATHS["d64file_abs"]
 
 
 @register_mytest(testtype, "Compile")
