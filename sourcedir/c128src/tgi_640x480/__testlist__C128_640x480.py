@@ -8,168 +8,229 @@ from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65,
 VICE_IP = "127.0.0.1"
 
 CONFIG = {
-    "testname": "C128-VDC2.tgi 640x480",            # nickname for 
-    "projdir": "tgi_640x480", 
-    "cmainfile": "main",                # c-file progname no extenion to give to compiler
-    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
-    "archtype": "c128",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
-    "platform": "Graphics",             # 2nd tier sorting category
-    "viceconf": "c128_viceconf.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "testname": "C128 TGI 640x480",
+    "projdir": "tgi_640x480",
+    "cmainfile": "main.c",
+    "testtype": "build",
+    "archtype": "c128",
+    "platform": "Graphics",
+    "viceconf": "c128_viceconf.cfg",
     "linkerconf": "",
+    "linker_driver1": "{src}c128-vdc2.tgi",
+    "driver1_label": "_c128_640x480",
     "projbasedir": "/testsrc/sourcedir/c128src/",
-        "structure": {
-        "project": {
-            "_rel": "{projdir}",
-            "viceconf": "{viceconf}",
-            "src": {
-                "_rel": "src"
+    "prg_filename": "tgi_640x480.prg",
+    "d64_disk8_name": "tgi_640x480.d64",
+    "d64_disk9_name": "",
+    "cmainfile_path": "{src}{cmainfile}",
+    "src": "{projbasedir}{projdir}/src/",
+    "d64_drive8_file": "{out_dir}/{d64_disk8_name}",
+    "d64_drive9_file": "{out_dir}/{d64_disk9_name}",
+    "prg_filepath": "{out_dir}/{prg_filename}",
+    "viceconf_filepath": "{projbasedir}{projdir}/{viceconf}",
+    "out_dir": "{projbasedir}{projdir}/output",
+
+"structure": {
+    "project": {
+        "_rel": "{projdir}",
+        "out": {
+            "_rel": "output",
+            "d64file_abs": "{d64_disk8_name}",
+            "prg": "{prg_filename}"
+        },
+        "src": {
+            "_rel": "src"
+        },
+        "viceconf": "vice_C64dualdisk.cfg"
+    }
+},
+
+
+    "steps": [
+        {
+            "action": "test_compiletheprogram",
+            "param": {
+                "archtype": "c128",
+                "cmainfile": "{cmainfile}",
+                "d64_file": "{d64_disk8_name}",
+                "drv1_label": "_c128_640x480",
+                "drv1_path": "{linker_driver1}",
+                "out_dir": "{out_dir}",
+                "prg_filepath": "{prg_filepath}",
+                "src_dir": "{src}"
             },
-            "out": {
-                "_rel": "output",
-                "prg": "{cmainfile}.prg",
-                "d64file_abs": "{cmainfile}.d64"
-            }
+            "subaction": ""
+        },
+        {
+            "action": "test_emulator_start",
+            "param": {
+                "autostart_path": "{d64_drive8_file}",
+                "disk8_path": "",
+                "disk9_path": "",
+                "name": "",
+                "port": "6502",
+                "rom_path": "",
+                "viceconf": "{viceconf_filepath}",
+                "warpmode": "True"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_wordsearch",
+            "param": {
+                "attemptdelay": "3",
+                "c128windowcolnum": "80col",
+                "failphrase": "failed",
+                "numberofattempts": "3",
+                "successphrase": "hello"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_terminate_all",
+            "param": {},
+            "subaction": ""
         }
-    },
+    ],
 }
 
 PATHS = init_test_env(CONFIG, __name__)
-testtype = CONFIG["testtype"]
-archtype = CONFIG["archtype"]
-progname = CONFIG["cmainfile"]
-viceconf = PATHS["viceconf"]
-src_dir = PATHS["src"]
-out_dir = PATHS["out"]
-prg_file = PATHS["prg"]
-d64_file = PATHS["d64file_abs"]
+# testtype = CONFIG["testtype"]
+# archtype = CONFIG["archtype"]
+# progname = CONFIG["cmainfile"]
+# viceconf = PATHS["viceconf"]
+# src_dir = PATHS["src"]
+# out_dir = PATHS["out"]
+# prg_file = PATHS["prg"]
+# d64_file = PATHS["d64file_abs"]
 
 
 
-@register_mytest(testtype, "Compile")
-def build1_compile(context):
-    os.makedirs(out_dir, exist_ok=True)
-    source_file = os.path.join(src_dir, "main.c")
-    asm_file    = os.path.join(out_dir, progname + "main.s")
-    obj_file    = os.path.join(out_dir, progname + "main.o")
-    prg_file    = os.path.join(out_dir, progname + ".prg")
-    d64_file    = os.path.join(out_dir, progname + ".d64")
-    # driver path info
-    driver_ser = os.path.join(src_dir, "c128-vdc2.tgi")
-    driver_s   = os.path.join(out_dir, "c128-vdc2.s")
-    driver_o   = os.path.join(out_dir, "c128-vdc2.o")
-    driver_label = "_c128_640x480"
+# @register_mytest(testtype, "Compile")
+# def build1_compile(context):
+#     os.makedirs(out_dir, exist_ok=True)
+#     source_file = os.path.join(src_dir, "main.c")
+#     asm_file    = os.path.join(out_dir, progname + "main.s")
+#     obj_file    = os.path.join(out_dir, progname + "main.o")
+#     prg_file    = os.path.join(out_dir, progname + ".prg")
+#     d64_file    = os.path.join(out_dir, progname + ".d64")
+#     # driver path info
+#     driver_ser = os.path.join(src_dir, "c128-vdc2.tgi")
+#     driver_s   = os.path.join(out_dir, "c128-vdc2.s")
+#     driver_o   = os.path.join(out_dir, "c128-vdc2.o")
+#     driver_label = "_c128_640x480"
 
-    log = []
-    steps = [
-        (compile_cc65, source_file, asm_file, archtype),
-        (assemble_ca65, asm_file, obj_file, archtype),
-        (assemble_object, driver_ser, driver_s, driver_label),
-        (assemble_ca65, driver_s, driver_o, archtype),
-        (link_ld65, [obj_file, driver_o], prg_file, archtype),
-        (create_blank_d64, d64_file),
-        (format_and_copyd64, d64_file, prg_file),
-    ]
+#     log = []
+#     steps = [
+#         (compile_cc65, source_file, asm_file, archtype),
+#         (assemble_ca65, asm_file, obj_file, archtype),
+#         (assemble_object, driver_ser, driver_s, driver_label),
+#         (assemble_ca65, driver_s, driver_o, archtype),
+#         (link_ld65, [obj_file, driver_o], prg_file, archtype),
+#         (create_blank_d64, d64_file),
+#         (format_and_copyd64, d64_file, prg_file),
+#     ]
 
-    for func, *args in steps:
-        success, out = func(*args)
-        log.append(f"{func.__name__}:\n{out}")
-        if not success:
-            context["abort"] = True
-            return False, "\n".join(log)
+#     for func, *args in steps:
+#         success, out = func(*args)
+#         log.append(f"{func.__name__}:\n{out}")
+#         if not success:
+#             context["abort"] = True
+#             return False, "\n".join(log)
 
-    return True, "\n".join(log)
+#     return True, "\n".join(log)
 
 
-@register_mytest(testtype, "start vice instance")
-def test_startviceemulator(context):
-    name, port = next_vice_instance(context)
-    log = []
+# @register_mytest(testtype, "start vice instance")
+# def test_startviceemulator(context):
+#     name, port = next_vice_instance(context)
+#     log = []
     
-    try:
-        instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
-        log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
+#     try:
+#         instance = ViceInstance(name, port, archtype, config_path=viceconf, disk_path=d64_file)
+#         log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
 
-        started = instance.start()
-        if not started:
-            log.append(f"{name} failed to start (no window ID detected).")
-            context["abort"] = True
-            return False, "\n".join(log)
+#         started = instance.start()
+#         if not started:
+#             log.append(f"{name} failed to start (no window ID detected).")
+#             context["abort"] = True
+#             return False, "\n".join(log)
 
-    except Exception as e:
-        log.append(f"CRITICAL: Python error during startup: {str(e)}")
-        context["abort"] = True
-        return False, "\n".join(log)
+#     except Exception as e:
+#         log.append(f"CRITICAL: Python error during startup: {str(e)}")
+#         context["abort"] = True
+#         return False, "\n".join(log)
 
-    time.sleep(3)
+#     time.sleep(3)
 
-    if not instance.wait_for_ready():
-        log.append(f"{name} did not become ready on port {port}")
-        log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-        context["abort"] = True
-        return False, "\n".join(log)
+#     if not instance.wait_for_ready():
+#         log.append(f"{name} did not become ready on port {port}")
+#         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+#         context["abort"] = True
+#         return False, "\n".join(log)
 
-    context[name] = instance
-    log.append(f"{name} is ready")
-    log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-    return True, "\n".join(log)
-
-
-@register_mytest(testtype, "send RUN")
-def test3_c128(context):
-    log = []
-    for name in ["vice1"]:
-        try:
-            success, output = send_c128_command(context, name, 'LOAD "*",8')
-            time.sleep(3)
-            success, output = send_c128_command(context, name, "RUN")
-            log.append(f"Sent RUN to {name}:\n{output}")
-        except Exception as e:
-            log.append(f"Failed to send to {name}: {e}")
-    return True, "\n".join(log)
+#     context[name] = instance
+#     log.append(f"{name} is ready")
+#     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+#     return True, "\n".join(log)
 
 
-@register_mytest(testtype, "screenshot after boot command")
-def build4_screenshot_both(context):
-    log = []
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
-            success = instance.take_screenshotc128(test_step=4, window="40col")
-            success = instance.take_screenshotc128(test_step=4, window="80col")
-            log.append(f"Screenshot for {name} taken: {success}")
-    if not log:
-        log.append("No ViceInstances found in context")
-    return True, "\n".join(log)
+# @register_mytest(testtype, "send RUN")
+# def test3_c128(context):
+#     log = []
+#     for name in ["vice1"]:
+#         try:
+#             success, output = send_c128_command(context, name, 'LOAD "*",8')
+#             time.sleep(3)
+#             success, output = send_c128_command(context, name, "RUN")
+#             log.append(f"Sent RUN to {name}:\n{output}")
+#         except Exception as e:
+#             log.append(f"Failed to send to {name}: {e}")
+#     return True, "\n".join(log)
 
 
-@register_mytest(testtype, "screenshot after program start")
-def build5_screenshot_both(context):
-    name, port = next_vice_instance(context)
-    log = []
-    time.sleep(15)  # takes a long time to laod the program
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
-            success = instance.take_screenshotc128(test_step=5, window="40col")
-            success = instance.take_screenshotc128(test_step=5, window="80col")
-            log.append(f"Screenshot for {name} taken: {success}")
-    if not log:
-        log.append("No ViceInstances found in context")
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
+# @register_mytest(testtype, "screenshot after boot command")
+# def build4_screenshot_both(context):
+#     log = []
+#     for name, instance in context.items():
+#         if isinstance(instance, ViceInstance):
+#             success = instance.take_screenshotc128(test_step=4, window="40col")
+#             success = instance.take_screenshotc128(test_step=4, window="80col")
+#             log.append(f"Screenshot for {name} taken: {success}")
+#     if not log:
+#         log.append("No ViceInstances found in context")
+#     return True, "\n".join(log)
+
+
+# @register_mytest(testtype, "screenshot after program start")
+# def build5_screenshot_both(context):
+#     name, port = next_vice_instance(context)
+#     log = []
+#     time.sleep(15)  # takes a long time to laod the program
+#     for name, instance in context.items():
+#         if isinstance(instance, ViceInstance):
+#             success = instance.take_screenshotc128(test_step=5, window="40col")
+#             success = instance.take_screenshotc128(test_step=5, window="80col")
+#             log.append(f"Screenshot for {name} taken: {success}")
+#     if not log:
+#         log.append("No ViceInstances found in context")
+#     if not success:
+#         context["abort"] = True
+#         return False, "\n".join(log)
     
-    context[name] = instance
-    return True, "\n".join(log)
+#     context[name] = instance
+#     return True, "\n".join(log)
 
 
-@register_mytest(testtype, "terminate all")
-def build6_stopallvice(context):
-    log = []
-    time.sleep(3)
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
-            log.append(f"Stopping {name} on port {instance.port}")
-            instance.stop()
-            log.append(f"{name} has exited.")
-    if not log:
-        log.append("No VICE instances found to stop.")
-    return True, "\n".join(log)
+# @register_mytest(testtype, "terminate all")
+# def build6_stopallvice(context):
+#     log = []
+#     time.sleep(3)
+#     for name, instance in context.items():
+#         if isinstance(instance, ViceInstance):
+#             log.append(f"Stopping {name} on port {instance.port}")
+#             instance.stop()
+#             log.append(f"{name} has exited.")
+#     if not log:
+#         log.append("No VICE instances found to stop.")
+#     return True, "\n".join(log)

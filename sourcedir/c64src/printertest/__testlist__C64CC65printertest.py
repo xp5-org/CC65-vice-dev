@@ -17,226 +17,309 @@ CONFIG = {
     "viceconf": "vice_c64_printer.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
     "linkerconf": "c64-sid.cfg",        # linker conf filename, in proj basedir
     "projbasedir": "/testsrc/sourcedir/c64src/",
-        "structure": {
-        "project": {
-            "_rel": "{projdir}",
-            "viceconf": "{viceconf}",
-            "src": {
-                "_rel": "src"
+    "prg_filename": "diskformat.prg",
+    "d64_disk8_name": "disk8main.d64",
+    "d64_disk9_name": "disk9.d64",
+    "cmainfile_path": "{src}{cmainfile}",
+    "src": "{projbasedir}{projdir}/src/",
+    "d64_drive8_file": "{projbasedir}{projdir}/output/{d64_disk8_name}",
+    "d64_drive9_file": "{projbasedir}{projdir}/output/{d64_disk9_name}",
+    "prg_filepath": "{projbasedir}{projdir}/output/{prg_filename}",
+    "viceconf_filepath": "{projbasedir}{projdir}/{viceconf}",
+    "out_dir": "{projbasedir}{projdir}/output",
+
+"structure": {
+    "project": {
+        "_rel": "{projdir}",
+        "out": {
+            "_rel": "output",
+            "d64file_abs": "{d64_disk8_name}",
+            "prg": "{prg_filename}"
+        },
+        "src": {
+            "_rel": "src"
+        },
+        "viceconf": "vice_C64dualdisk.cfg"
+    }
+},
+
+
+    "steps": [
+        {
+            "action": "test_compiletheprogram",
+            "param": {
+                "archtype": "c64",
+                "cmainfile": "{cmainfile_path}",
+                "d64_file": "{d64_drive8_file}",
+                "out_dir": "{out_dir}",
+                "prg_filepath": "{prg_filepath}",
+                "src_dir": "{src}"
             },
-            "out": {
-                "_rel": "output",
-                "prg": "{cmainfile}.prg",
-                "d64file_abs": "{cmainfile}.d64"
-            }
+            "subaction": ""
+        },
+        {
+            "action": "test_emulator_start",
+            "param": {
+                "autostart_path": "",
+                "disk8_path": "{d64_drive8_file}",
+                "disk9_path": "{d64_drive8_file}",
+                "name": "",
+                "port": "6502",
+                "rom_path": "",
+                "viceconf": "{viceconf_filepath}",
+                "warpmode": "True"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_wordsearch",
+            "param": {
+                "attemptdelay": "3",
+                "failphrase": "failed",
+                "numberofattempts": "10",
+                "successphrase": "ready"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_sendrun",
+            "param": {},
+            "subaction": ""
+        },
+        {
+            "action": "test_wordsearch",
+            "param": {
+                "attemptdelay": "3",
+                "failphrase": "error",
+                "numberofattempts": "10",
+                "successphrase": "status: 00"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_basic_sendlistdisk",
+            "param": {
+                "disk_idnum": "8"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_wordsearch",
+            "param": {
+                "attemptdelay": "3",
+                "failphrase": "error",
+                "numberofattempts": "5",
+                "successphrase": "itworks"
+            },
+            "subaction": ""
         }
-    },
+    ],
 }
 
 PATHS = init_test_env(CONFIG, __name__)
-testtype = CONFIG["testtype"]
-archtype = CONFIG["archtype"]
-progname = CONFIG["cmainfile"]
-viceconf = PATHS["viceconf"]
-src_dir = PATHS["src"]
-out_dir = PATHS["out"]
-prg_file = PATHS["prg"]
-d64_file = PATHS["d64file_abs"]
+# testtype = CONFIG["testtype"]
+# archtype = CONFIG["archtype"]
+# progname = CONFIG["cmainfile"]
+# viceconf = PATHS["viceconf"]
+# src_dir = PATHS["src"]
+# out_dir = PATHS["out"]
+# prg_file = PATHS["prg"]
+# d64_file = PATHS["d64file_abs"]
 
 
 
 
 
 
-@register_mytest(testtype, "Compile")
-def cc65_c64compile(context):
-    os.makedirs(PATHS["out"], exist_ok=True)
+# @register_mytest(testtype, "Compile")
+# def cc65_c64compile(context):
+#     os.makedirs(PATHS["out"], exist_ok=True)
 
-    c_src_files = [os.path.join(PATHS["src"], f) 
-                   for f in os.listdir(PATHS["src"]) 
-                   if f.lower().endswith(".c")]
+#     c_src_files = [os.path.join(PATHS["src"], f) 
+#                    for f in os.listdir(PATHS["src"]) 
+#                    if f.lower().endswith(".c")]
 
-    obj_files = [os.path.join(PATHS["out"], os.path.splitext(os.path.basename(f))[0] + ".o")
-                 for f in c_src_files]
-    print("Found C files:", c_src_files, "in dir: ", PATHS["src"])
-    log = []
-
-    for src, obj in zip(c_src_files, obj_files):
-        asm_file = os.path.splitext(obj)[0] + ".s"
-        # add -Cl to the compile flags
-        success, out = compile_cc65(src, asm_file, archtype, extra_flags=["-Cl"])
-        log.append(f"compile_cc65 {src}:\n{out}")
-        if not success:
-            context["abort"] = True
-            return False, "\n".join(log)
-
-
-        success, out = assemble_ca65(asm_file, obj, archtype)
-        log.append(f"assemble_ca65 {asm_file}:\n{out}")
-        if not success:
-            context["abort"] = True
-            return False, "\n".join(log)
-
-    prg_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".prg")
-    success, out = link_ld65(obj_files, prg_file, archtype)
-    log.append(f"link_ld65:\n{out}")
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
-    success, out = create_blank_d64(d64_file)
-    log.append(f"create_blank_d64:\n{out}")
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    success, out = format_and_copyd64(d64_file, prg_file)
-    log.append(f"format_and_copyd64:\n{out}")
-    if not success:
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    return True, "\n".join(log)
-
-
-@register_mytest(testtype, "clear old file")
-def test_startviceemulator(context):
-    log = []
-    # with open("/tmp/viceprnt.txt", "r+") as f:
-    #     f.truncate(0)
-
-    os.remove("/tmp/viceprnt.txt")
-    
-    return True, "\n".join(log)
-
-@register_mytest(testtype, "start vice instance")
-def test_startviceemulator(context):
-    name, port = next_vice_instance(context)
-    log = []
-    
-    try:
-        instance = ViceInstance(name, port, archtype, config_path=viceconf, autostart_path=d64_file)
-        log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
-
-        started = instance.start()
-        if not started:
-            log.append(f"{name} failed to start (no window ID detected).")
-            context["abort"] = True
-            return False, "\n".join(log)
-
-    except Exception as e:
-        log.append(f"CRITICAL: Python error during startup: {str(e)}")
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    time.sleep(3)
-
-    if not instance.wait_for_ready():
-        log.append(f"{name} did not become ready on port {port}")
-        log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-        context["abort"] = True
-        return False, "\n".join(log)
-
-    context[name] = instance
-    log.append(f"{name} is ready")
-    log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
-    return True, "\n".join(log)
-
-
-# @register_mytest(testtype, "start prog word search")
-# def filewrite_check(context):
+#     obj_files = [os.path.join(PATHS["out"], os.path.splitext(os.path.basename(f))[0] + ".o")
+#                  for f in c_src_files]
+#     print("Found C files:", c_src_files, "in dir: ", PATHS["src"])
 #     log = []
-#     abort = False
 
-#     for name, instance in context.items():
-#         if not isinstance(instance, ViceInstance):
-#             continue
+#     for src, obj in zip(c_src_files, obj_files):
+#         asm_file = os.path.splitext(obj)[0] + ".s"
+#         # add -Cl to the compile flags
+#         success, out = compile_cc65(src, asm_file, archtype, extra_flags=["-Cl"])
+#         log.append(f"compile_cc65 {src}:\n{out}")
+#         if not success:
+#             context["abort"] = True
+#             return False, "\n".join(log)
 
-#         attempt = 0
-#         screentext = ""
-#         found_status = False
 
-#         while attempt < 8:
-#             screentext = instance.screentextdump(context)
-#             screentext = screentext.lower()
+#         success, out = assemble_ca65(asm_file, obj, archtype)
+#         log.append(f"assemble_ca65 {asm_file}:\n{out}")
+#         if not success:
+#             context["abort"] = True
+#             return False, "\n".join(log)
 
-#             if "printtestfailed" in screentext:
-#                 log.append(f"{name} - Screentext search in python - save to disk failure")
-#                 abort = True
-#                 found_status = True
-#                 break
-
-#             if "ready" in screentext:
-#                 log.append(f"{name} - Screentext search in python reported success")
-#                 found_status = True
-#                 break
-
-#             time.sleep(2)
-#             attempt += 1
-
-#         if not found_status:
-#             log.append(f"{name} did not report success or failure")
-#             abort = True
-
-#         log.append(f"{name} screentext:\n{screentext}")
-
-#         if instance.take_screenshot():
-#             log.append(f"Screenshot for {name} taken")
-#         else:
-#             log.append(f"Screenshot for {name} failed")
-#             abort = True
-
-#     if not log:
-#         log.append("No ViceInstances found in context")
-
-#     if abort:
+#     prg_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".prg")
+#     success, out = link_ld65(obj_files, prg_file, archtype)
+#     log.append(f"link_ld65:\n{out}")
+#     if not success:
 #         context["abort"] = True
-#         for name, instance in context.items():
-#             if isinstance(instance, ViceInstance):
-#                 log.append(f"Stopping {name} on port {instance.port}")
-#                 instance.stop()
+#         return False, "\n".join(log)
+
+#     d64_file = os.path.join(PATHS["out"], CONFIG["cmainfile"] + ".d64")
+#     success, out = create_blank_d64(d64_file)
+#     log.append(f"create_blank_d64:\n{out}")
+#     if not success:
+#         context["abort"] = True
+#         return False, "\n".join(log)
+
+#     success, out = format_and_copyd64(d64_file, prg_file)
+#     log.append(f"format_and_copyd64:\n{out}")
+#     if not success:
+#         context["abort"] = True
 #         return False, "\n".join(log)
 
 #     return True, "\n".join(log)
 
 
+# @register_mytest(testtype, "clear old file")
+# def test_startviceemulator(context):
+#     log = []
+#     # with open("/tmp/viceprnt.txt", "r+") as f:
+#     #     f.truncate(0)
 
-
-
-@register_mytest(testtype, "Check out file")
-def build3_screenshot_both(context):
-    searchphrase = "TEST1"
-    printfilepath = "/tmp/viceprnt.txt"
-    log = []
+#     os.remove("/tmp/viceprnt.txt")
     
-    with open(printfilepath, "r") as f:
-        if searchphrase in f.read():
-            log.append(f"Phrase found in printerfile: {searchphrase} \n {printfilepath}")
-            for vice_name in ["vice1"]:
-                for name, instance in context.items():
-                    if isinstance(instance, ViceInstance):
-                        instance.take_screenshot()
-        else:
-            log.append("printer text search not success")
-            context["abort"] = True
+#     return True, "\n".join(log)
+
+# @register_mytest(testtype, "start vice instance")
+# def test_startviceemulator(context):
+#     name, port = next_vice_instance(context)
+#     log = []
+    
+#     try:
+#         instance = ViceInstance(name, port, archtype, config_path=viceconf, autostart_path=d64_file)
+#         log.append(f"Launching {name} on port {port} with disk={d64_file} config={viceconf}")
+
+#         started = instance.start()
+#         if not started:
+#             log.append(f"{name} failed to start (no window ID detected).")
+#             context["abort"] = True
+#             return False, "\n".join(log)
+
+#     except Exception as e:
+#         log.append(f"CRITICAL: Python error during startup: {str(e)}")
+#         context["abort"] = True
+#         return False, "\n".join(log)
+
+#     time.sleep(3)
+
+#     if not instance.wait_for_ready():
+#         log.append(f"{name} did not become ready on port {port}")
+#         log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+#         context["abort"] = True
+#         return False, "\n".join(log)
+
+#     context[name] = instance
+#     log.append(f"{name} is ready")
+#     log.append(f"{name} stdout:\n{''.join(instance.get_output())}")
+#     return True, "\n".join(log)
+
+
+# # @register_mytest(testtype, "start prog word search")
+# # def filewrite_check(context):
+# #     log = []
+# #     abort = False
+
+# #     for name, instance in context.items():
+# #         if not isinstance(instance, ViceInstance):
+# #             continue
+
+# #         attempt = 0
+# #         screentext = ""
+# #         found_status = False
+
+# #         while attempt < 8:
+# #             screentext = instance.screentextdump(context)
+# #             screentext = screentext.lower()
+
+# #             if "printtestfailed" in screentext:
+# #                 log.append(f"{name} - Screentext search in python - save to disk failure")
+# #                 abort = True
+# #                 found_status = True
+# #                 break
+
+# #             if "ready" in screentext:
+# #                 log.append(f"{name} - Screentext search in python reported success")
+# #                 found_status = True
+# #                 break
+
+# #             time.sleep(2)
+# #             attempt += 1
+
+# #         if not found_status:
+# #             log.append(f"{name} did not report success or failure")
+# #             abort = True
+
+# #         log.append(f"{name} screentext:\n{screentext}")
+
+# #         if instance.take_screenshot():
+# #             log.append(f"Screenshot for {name} taken")
+# #         else:
+# #             log.append(f"Screenshot for {name} failed")
+# #             abort = True
+
+# #     if not log:
+# #         log.append("No ViceInstances found in context")
+
+# #     if abort:
+# #         context["abort"] = True
+# #         for name, instance in context.items():
+# #             if isinstance(instance, ViceInstance):
+# #                 log.append(f"Stopping {name} on port {instance.port}")
+# #                 instance.stop()
+# #         return False, "\n".join(log)
+
+# #     return True, "\n".join(log)
+
+
+
+
+
+# @register_mytest(testtype, "Check out file")
+# def build3_screenshot_both(context):
+#     searchphrase = "TEST1"
+#     printfilepath = "/tmp/viceprnt.txt"
+#     log = []
+    
+#     with open(printfilepath, "r") as f:
+#         if searchphrase in f.read():
+#             log.append(f"Phrase found in printerfile: {searchphrase} \n {printfilepath}")
+#             for vice_name in ["vice1"]:
+#                 for name, instance in context.items():
+#                     if isinstance(instance, ViceInstance):
+#                         instance.take_screenshot()
+#         else:
+#             log.append("printer text search not success")
+#             context["abort"] = True
         
-    return True, "\n".join(log)
+#     return True, "\n".join(log)
 
 
 
 
-@register_mytest(testtype, "terminate all")
-def build5_stopallvice(context):
-    log = []
-    time.sleep(5)
-    for name, instance in context.items():
-        if isinstance(instance, ViceInstance):
-            log.append(f"Stopping {name} on port {instance.port}")
-            instance.stop()
-            log.append(f"{name} has exited.")
+# @register_mytest(testtype, "terminate all")
+# def build5_stopallvice(context):
+#     log = []
+#     time.sleep(5)
+#     for name, instance in context.items():
+#         if isinstance(instance, ViceInstance):
+#             log.append(f"Stopping {name} on port {instance.port}")
+#             instance.stop()
+#             log.append(f"{name} has exited.")
 
 
-    if not log:
-        log.append("No VICE instances found to stop.")
-    return True, "\n".join(log)
+#     if not log:
+#         log.append("No VICE instances found to stop.")
+#     return True, "\n".join(log)

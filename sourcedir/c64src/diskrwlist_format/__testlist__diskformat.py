@@ -7,18 +7,18 @@ from vicehelpers import compile_cc65, assemble_ca65, assemble_object, link_ld65,
 VICE_IP = "127.0.0.1"
 
 CONFIG = {
-    "testname": "C64 MCM Gradient",            # nickname for 
-    "projdir": "mcmdemo1", 
-    "cmainfile": "mcmdemo1",            # c-file progname no extenion to give to compiler
-    "testtype": "build",                # name for this test type, used to make new run-button of like-named tests
-    "archtype": "c64",                  # 1st tier sorting category. vice wants lowercase c64, vic20 or c128
-    "platform": "Graphics",             # 2nd tier sorting category
-    "viceconf": "vice_nosound.cfg",     # sound conf location, assume this starts at PATHS["projdir"]
+    "testname": "diskrwlisttest",
+    "projdir": "diskrwlist_format",
+    "cmainfile": "diskformat.c",
+    "testtype": "format",
+    "archtype": "c64",
+    "platform": "Disk IO",
+    "viceconf": "vice_C64nosound.cfg",
     "linkerconf": "",
     "projbasedir": "/testsrc/sourcedir/c64src/",
-    "prg_filename": "c64hiresgradient.prg",
-    "d64_disk8_name": "c64hiresgradient.d64",
-    "d64_disk9_name": "",
+    "prg_filename": "diskformat.prg",
+    "d64_disk8_name": "disk8main.d64",
+    "d64_disk9_name": "disk9.d64",
     "cmainfile_path": "{src}{cmainfile}",
     "src": "{projbasedir}{projdir}/src/",
     "d64_drive8_file": "{projbasedir}{projdir}/output/{d64_disk8_name}",
@@ -47,9 +47,9 @@ CONFIG = {
         {
             "action": "test_compiletheprogram",
             "param": {
-                "archtype": None,
-                "d64_drive8_file": "{d64_drive8_file}",
-                "d64_file": None,
+                "archtype": "c64",
+                "cmainfile": "{cmainfile_path}",
+                "d64_file": "{d64_drive8_file}",
                 "out_dir": "{out_dir}",
                 "prg_filepath": "{prg_filepath}",
                 "src_dir": "{src}"
@@ -96,12 +96,23 @@ CONFIG = {
             "subaction": ""
         },
         {
-            "action": "test_terminate_all",
-            "param": {},
+            "action": "test_basic_sendlistdisk",
+            "param": {
+                "disk_idnum": "8"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_wordsearch",
+            "param": {
+                "attemptdelay": "3",
+                "failphrase": "error",
+                "numberofattempts": "5",
+                "successphrase": "itworks"
+            },
             "subaction": ""
         }
     ],
 }
-
 
 PATHS = init_test_env(CONFIG, __name__)
