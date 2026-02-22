@@ -1,0 +1,67 @@
+import sys
+import os
+import time
+
+from apphelpers import init_test_env, register_mytest
+from atarihelpers import HatariInstance
+VICE_IP = "127.0.0.1"
+
+
+CONFIG = {
+    "testname": "hatari hello",
+    "projdir": "hello1",
+    "cmainfile": "hello.c",
+    "prg_filename": "hello.prg",
+    "testtype": "windowed",
+    "archtype": "st",
+    "romfile": "etos256us.img",
+    "platform": "Graphics",
+    "viceconf": "vic20_viceconf.cfg",
+    "linkerconf": "",
+    "mountpath": "{out_dir}",
+    "projbasedir": "/testsrc/sourcedir/atarisrc/",
+    "src": "{projbasedir}{projdir}/src/",
+    "cmainfile_path": "{src}{cmainfile}",
+    "romfilefile_path": "{src}{romfile}",
+    "out_dir": "{projbasedir}{projdir}/output",
+    "prg_filepath": "{projbasedir}{projdir}/output/{prg_filename}",
+    "structure": {},
+    "steps": [
+        {
+            "action": "test_compile4atari",
+            "param": {
+                "out_dir": "None",
+                "prg_filepath": "{prg_filepath}",
+                "src_dir": "{src}"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_hatari_start",
+            "param": {
+                "config_path": "",
+                "fastboot": "True",
+                "mountpath": "{out_dir}",
+                "name": "",
+                "port": "",
+                "prg_filename": "{prg_filename}",
+                "romfile_path": "{romfilefile_path}"
+            },
+            "subaction": ""
+        },
+        {
+            "action": "test_wait30seconds",
+            "param": {},
+            "subaction": ""
+        },
+        {
+            "action": "test_hatariterminate_all",
+            "param": {},
+            "subaction": ""
+        }
+    ],
+}
+
+PATHS = init_test_env(CONFIG, __name__)
+
+base = os.path.join(CONFIG["projbasedir"], CONFIG["projdir"])

@@ -194,7 +194,7 @@ def find_window_id_by_pid(pid):
 # wrapper for putting logging around class start method
 def launch_vice_instance(instance, boot_delay=3):
     log = []
-    log.append(f"Launching {instance.name} on port {instance.port} with disk={instance.disk_path}")
+    log.append(f"Launching {instance.name} on port {instance.port} with disk={instance.disk8_path}")
     
     if not instance.start():
         log.append(f"{instance.name} failed to start (no window ID detected).")
@@ -213,14 +213,15 @@ def launch_vice_instance(instance, boot_delay=3):
 
 
 class ViceInstance:
-    def __init__(self, name, port, archtype, config_path=None, disk_path=None, rom_path=None, autostart_path=None, warpmode=None):
+    def __init__(self, name, port, archtype, config_path=None, disk8_path=None, disk9_path=None, rom_path=None, autostart_path=None, warpmode=None):
         #base_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = "/testsrc/"
         self.name = name
         self.port = port
         self.archtype = archtype
         self.config_path = os.path.join(base_dir, config_path) if config_path and not os.path.isabs(config_path) else config_path
-        self.disk_path = os.path.join(base_dir, disk_path) if disk_path and not os.path.isabs(disk_path) else disk_path
+        self.disk8_path = os.path.join(base_dir, disk8_path) if disk8_path and not os.path.isabs(disk8_path) else disk8_path
+        self.disk9_path = os.path.join(base_dir, disk9_path) if disk9_path and not os.path.isabs(disk9_path) else disk9_path
         self.autostart_path = os.path.join(base_dir, autostart_path) if autostart_path and not os.path.isabs(autostart_path) else autostart_path
         self.window_id = None
         self.screenshot_count = 0
@@ -256,6 +257,24 @@ class ViceInstance:
         self.proc.wait()
 
 
+    def _check_disk(self, path):
+        if not path:
+            return
+        
+        full_path = os.path.abspath(path)
+        
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Disk image not found: {full_path}")
+            
+        if not os.access(full_path, os.R_OK | os.W_OK):
+            # Attempt to fix permissions if you have the rights, 
+            # otherwise raise an error.
+            try:
+                os.chmod(full_path, 0o666)
+            except OSError:
+                raise PermissionError(f"Disk image at {full_path} is not R/W accessible.")
+
+
     def start(self):
         ViceInstance.seen_window_ids.clear()
         base_dir = "/testsrc/"
@@ -284,12 +303,19 @@ class ViceInstance:
 
         if self.warpmode:
             cmd += ["-warp"]
-        if self.disk_path:
-            cmd += ["-8", self.disk_path]
+        if self.disk8_path:
+            self._check_disk(self.disk8_path) # make sure disk is r/w from os view
+            cmd += ["-8", self.disk8_path]
+        if self.disk9_path:
+            self._check_disk(self.disk9_path)
+            cmd += ["-drive9type", "1541"]
+            cmd += ["-9", self.disk9_path]
         if self.rom_path:
             cmd += ["-kernal", self.rom_path]
         if self.autostart_path:
             cmd += ["-autostart", self.autostart_path]
+
+        self.cmd = list(cmd)
 
         self.proc = subprocess.Popen(
             cmd,
@@ -337,7 +363,7 @@ class ViceInstance:
             daemon=True
         )
         self.thread.start()
-
+        
         return True
 
 
@@ -410,62 +436,124 @@ class ViceInstance:
             self.thread.join(timeout=timeout)
 
 
-    def take_screenshot(self, test_step=None, filename=None, window="default"):
-        # test
+
+
+
+    def _execute_screenshot(self, win_id, test_step):
         _helperdir = "/testrunnersrc/pyhelpers"
         if _helperdir not in sys.path:
             sys.path.insert(0, _helperdir)
         from appstate import progress_state
+        
         stepnum = progress_state.step
         stepnum = re.match(r'\d+', stepnum).group(0)
+        
         if not test_step:
             test_step = stepnum
-        # test
-        print("screenshotting window id: ", window)
-        if not self.proc or self.proc.poll() is not None:
-            print(f"[{self.name}] VICE process not running.")
-            return False
 
-        # determine which window to use
-        win_id = None
-        win_id = getattr(self, "window_id", None)
-        print("screenshotting window id: ", win_id)
+        if not self.proc or self.proc.poll() is not None:
+            return False
 
         if not win_id:
-            print(f"[{self.name}] No window ID cached, cannot take screenshot.")
             return False
 
-        screenshot_base_dir = "/testrunnerapp/"
-        reports_dir = os.path.join(screenshot_base_dir, "reports")
+        reports_dir = "/testrunnerapp/reports"
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
 
+        print(f"[{self.name}] Screenshotting window ID: {win_id}")
         self.screenshot_count += 1
-
-        if filename is None:
-            if test_step:
-                filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
-            else:
-                filename = f"screenshot-{self.name}-{self.screenshot_count}.png"
-
+        filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
         filepath = os.path.join(reports_dir, filename)
 
         try:
             subprocess.run(["xdotool", "windowmap", win_id], check=True)
             subprocess.run(["xdotool", "windowactivate", win_id], check=True)
+            time.sleep(0.2)
             subprocess.run(["import", "-window", win_id, filepath], check=True)
-            print(f"[{self.name}] Screenshot saved to {filepath}")
-
+            
             if croptheimage(filepath):
-                #return True
                 return filepath
-            else:
-                print(f"[{self.name}] Failed to crop screenshot")
-                return False
-
-        except subprocess.CalledProcessError as e:
-            print(f"[{self.name}] Failed to take screenshot: {e}")
             return False
+        except subprocess.CalledProcessError:
+            return False
+
+    def take_screenshot(self, archtype=None, window="default", test_step=None):
+        target_arch = archtype or getattr(self, "archtype", "c64")
+        win_id = None
+
+        if target_arch == "c128":
+            if window == "40col":
+                win_id = getattr(self, "window_id_40", None)
+            elif window == "80col":
+                win_id = getattr(self, "window_id_80", None)
+            else:
+                win_id = self.window_id_40 or self.window_id_80 or self.window_id
+        else:
+            win_id = getattr(self, "window_id", None)
+
+        return self._execute_screenshot(win_id, test_step)
+    
+
+    
+
+
+    # def take_screenshot(self, test_step=None, filename=None, window="default"):
+    #     # test
+    #     _helperdir = "/testrunnersrc/pyhelpers"
+    #     if _helperdir not in sys.path:
+    #         sys.path.insert(0, _helperdir)
+    #     from appstate import progress_state
+    #     stepnum = progress_state.step
+    #     stepnum = re.match(r'\d+', stepnum).group(0)
+    #     if not test_step:
+    #         test_step = stepnum
+    #     # test
+    #     print("screenshotting window id: ", window)
+    #     if not self.proc or self.proc.poll() is not None:
+    #         print(f"[{self.name}] VICE process not running.")
+    #         return False
+
+    #     # determine which window to use
+    #     win_id = None
+    #     win_id = getattr(self, "window_id", None)
+    #     print("screenshotting window id: ", win_id)
+
+    #     if not win_id:
+    #         print(f"[{self.name}] No window ID cached, cannot take screenshot.")
+    #         return False
+
+    #     screenshot_base_dir = "/testrunnerapp/"
+    #     reports_dir = os.path.join(screenshot_base_dir, "reports")
+    #     if not os.path.exists(reports_dir):
+    #         os.makedirs(reports_dir)
+
+    #     self.screenshot_count += 1
+
+    #     if filename is None:
+    #         if test_step:
+    #             filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
+    #         else:
+    #             filename = f"screenshot-{self.name}-{self.screenshot_count}.png"
+
+    #     filepath = os.path.join(reports_dir, filename)
+
+    #     try:
+    #         subprocess.run(["xdotool", "windowmap", win_id], check=True)
+    #         subprocess.run(["xdotool", "windowactivate", win_id], check=True)
+    #         subprocess.run(["import", "-window", win_id, filepath], check=True)
+    #         print(f"[{self.name}] Screenshot saved to {filepath}")
+
+    #         if croptheimage(filepath):
+    #             #return True
+    #             return filepath
+    #         else:
+    #             print(f"[{self.name}] Failed to crop screenshot")
+    #             return False
+
+    #     except subprocess.CalledProcessError as e:
+    #         print(f"[{self.name}] Failed to take screenshot: {e}")
+    #         return False
      
 
     def take_screenshotc128(self, test_step=None, filename=None, window="default"):
@@ -576,6 +664,7 @@ class ViceInstance:
 
     def screentextdump(self, context, window="default"):
         if not self.proc or self.proc.poll() is not None:
+            print("ERRRRRRRORRRR")
             return None
 
         win_id = None
@@ -588,7 +677,6 @@ class ViceInstance:
                 win_id = self.window_id_40 or self.window_id_80 or self.window_id
         else:
             win_id = getattr(self, "window_id", None)
-
         if win_id:
             try:
                 subprocess.run(["xdotool", "windowactivate", win_id], check=True)
@@ -710,30 +798,21 @@ def ocr_word_find(instance, phrase, timeout=10, startx=None, starty=None, stopx=
 
 
 # CC65 disk stuff #
-# def compile_cc65(source_file, output_file, archtype):
-#     source_path = os.path.join(base_dir, source_file)
-#     output_path = os.path.join(base_dir, output_file)
-#     output_dir = os.path.dirname(output_path)
-#     if not os.path.exists(output_dir):
-#         os.makedirs(output_dir, exist_ok=True)
 
 
-#     if not os.path.exists(source_path):
-#         return False, f"Source file not found: {source_path}"
-
-#     cmd = ['cc65', '-O', '-t', archtype, '-o', output_path, source_path]
-#     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-#     success = proc.returncode == 0
-#     return success, proc.stdout
-
-
-def compile_cc65(source_file, output_file, archtype, extra_flags=None):
+def compile_cc65(source_file, output_file, archtype, extra_flags=None, optimize=False):
     cmd = ['cc65', '-t', archtype]
+    
+    if optimize:
+        cmd.extend(['-O', '-Oi', '-Or', '-Os', '-Cl'])
+    
     if extra_flags:
         cmd.extend(extra_flags)
+        
     cmd.extend(['-o', output_file, source_file])
-    print("compiling CC65 with command: ", cmd)
+    print("compiling CC65 with command: ", " ".join(cmd))
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    
     success = proc.returncode == 0
     return success, proc.stdout
 

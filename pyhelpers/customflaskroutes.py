@@ -11,10 +11,6 @@ BASE_INCLUDE_DIR = "/usr/share/cc65/include/"
 
 
 
-
-
-
-
 def register_routes(app):
     @app.route('/projectB')
     def projbtest():
@@ -78,7 +74,7 @@ def register_routes(app):
                 if file.endswith(('.h', '.c')):
                     full_path = os.path.join(root, file)
                     all_data.extend(parse_header_file(full_path))
-        print(json.dumps(all_data, indent=4))
+        #print(json.dumps(all_data, indent=4))
         return render_template('libsearch.html', data=all_data)
 
 
