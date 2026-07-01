@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM ubuntu:25.04
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -24,6 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         xorgxrdp \
         xrdp \
         xvfb \
+        openssh-server \
         sudo \
         wget \
         curl \
@@ -32,6 +32,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         python3-pip \
         python3-venv \
         build-essential \
+        software-properties-common \
         supervisor \
         # xterm for runme.sh debug
         xterm \
@@ -45,6 +46,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         cc65 \
         libsdl2-dev \
         #vice \
+        # for hatari (atari st emulator) build
+        zlib1g-dev \
         xdotool imagemagick \
         # for pipewire
         pipewire \
@@ -80,6 +83,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 #    apt-get autoremove -y && \
 #    rm -rf /var/cache/apt /var/lib/apt/lists/*
 
+# install m68k-atari-mintelf cross-tools (for compiling Atari ST/MiNT sources, e.g. m68k-atari-mintelf-gcc)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    add-apt-repository -y ppa:vriviere/mintelf && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        cross-mintelf-essential
+
 # install Firefox
 RUN wget -O /tmp/firefox.tar.bz2 "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" --no-check-certificate && \
     tar xvf /tmp/firefox.tar.bz2 -C /opt && \
@@ -109,9 +120,6 @@ RUN set -e; \
     CORES=${COMPILERCORES:-$(nproc)} && \
     CORES=$((CORES / 2)) && \
     if [ "$CORES" -lt 1 ]; then CORES=1; fi && \
-    #export CFLAGS="-g -O3 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection"; \
-    #export CPPFLAGS="-Wdate-time -D_FORTIFY_SOURCE=3"; \
-    #export LDFLAGS="-Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro"; \
     export CFLAGS="-O3" \
     export CXXFLAGS="-O3" \
     export LDFLAGS="" \
@@ -139,11 +147,28 @@ RUN set -e; \
 		--enable-rs232 \
 		--enable-ipv6 \
 		--with-oss && \
-    make -j$(CORES) && \
+    make -j"$CORES" && \
     make install && \
     mkdir -p /usr/share/vice && \
     cp -a data/* /usr/share/vice/ && \
     rm -rf /tmp/vice*
+
+
+# build hatari from src
+RUN set -e; \
+    CORES=${COMPILERCORES:-$(nproc)} && \
+    CORES=$((CORES / 2)) && \
+    if [ "$CORES" -lt 1 ]; then CORES=1; fi && \
+    HATARI_TAG=$(python3 -c "import urllib.request, json; print(json.load(urllib.request.urlopen('https://framagit.org/api/v4/projects/hatari%2Fhatari/repository/tags?per_page=1'))[0]['name'])") && \
+    echo "Building Hatari $HATARI_TAG" && \
+    curl -L -o /tmp/hatari.tar.bz2 "https://framagit.org/hatari/hatari/-/archive/${HATARI_TAG}/hatari-${HATARI_TAG}.tar.bz2" && \
+    mkdir -p /tmp/hatari && \
+    tar -xjf /tmp/hatari.tar.bz2 -C /tmp/hatari --strip-components=1 && \
+    cd /tmp/hatari && \
+    ./configure --prefix=/usr && \
+    make -j"$CORES" && \
+    make install && \
+    cd / && rm -rf /tmp/hatari /tmp/hatari.tar.bz2
 
 
 # build cc65 , not needed can get it from apt-get
@@ -181,12 +206,15 @@ RUN mkdir -p /var/log && touch /var/log/flaskapp.out.log /var/log/flaskapp.err.l
 
 # build the pipewire module for xrdp audio
 WORKDIR /tmp
-RUN mkdir -p /app/pipewire-module && \
+RUN CORES=${COMPILERCORES:-$(nproc)} && \
+    CORES=$((CORES / 2)) && \
+    if [ "$CORES" -lt 1 ]; then CORES=1; fi && \
+    mkdir -p /app/pipewire-module && \
     git clone https://github.com/neutrinolabs/pipewire-module-xrdp.git /tmp/pipewire-module && \
     cd /tmp/pipewire-module && \
     ./bootstrap && \
     ./configure --with-module-dir=/usr/lib/x86_64-linux-gnu/pipewire-0.3 && \
-    make -j$(CORES) && \
+    make -j"$CORES" && \
     make install && \
     ldconfig
 
@@ -199,5 +227,5 @@ RUN chmod +x /app/entrypoint.sh
 
 
 # need at least these 2 ports
-EXPOSE 3389 8080
+EXPOSE 3389 8080 22
 ENTRYPOINT ["/app/entrypoint.sh"]
