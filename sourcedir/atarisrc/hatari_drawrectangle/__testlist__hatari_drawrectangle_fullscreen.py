@@ -8,11 +8,11 @@ VICE_IP = "127.0.0.1"
 
 
 CONFIG = {
-    "testname": "hatari hello",
-    "projdir": "hello1",
-    "cmainfile": "hello.c",
-    "prg_filename": "hello.prg",
-    "testtype": "windowed",
+    "testname": "hatari rectangle draw",
+    "projdir": "hatari_drawrectangle",
+    "cmainfile": "rectangle_fullscreen.c",
+    "prg_filename": "rectangle_fullscreen.prg",
+    "testtype": "fullscreen",
     "archtype": "st",
     "romfile": "etos256us.img",
     "platform": "Graphics",
@@ -28,7 +28,7 @@ CONFIG = {
         {
             "action": "test_compile4atari",
             "param": {
-                "out_dir": "None",
+                "out_dir": "{out_dir}",
                 "prg_filepath": "{prg_filepath}",
                 "src_dir": "{src}"
             },
@@ -50,7 +50,7 @@ CONFIG = {
         {
             "action": "test_wait30seconds",
             "param": {
-                "seconds": "15"
+                "seconds": "45"
             },
             "subaction": ""
         },
