@@ -15,6 +15,10 @@ import cv2
 import os
 from PIL import Image, ImageOps
 from pyzbar.pyzbar import decode
+from appstate import process_registry
+
+
+
 
 VICE_BASE_PORT = 65501
 assigned_window_ids = set()
@@ -22,10 +26,6 @@ assigned_window_ids = set()
 
 # base_dir = os.path.dirname(os.path.abspath(__file__))
 base_dir = "/testsrc/"
-
-
-
-
 
 
 
@@ -132,11 +132,12 @@ def send_vice_command(context, name, string):
         chunk = string[i:i + 10]
         print(f"Sending to '{name}':", chunk)
         bits = ascii_to_petscii_cmd(chunk)
+        # Fill the keyboard buffer (KEYD=$0277) then set its length (NDX=$00C6)
+        # exactly once. Re-arming NDX a second time re-reads stale/NUL bytes
+        # left in KEYD after a fast (warp-mode) program already drained it,
+        # which injects phantom keystrokes — visible as trailing NULs/'@'.
         log.append(send_single_command(context, name, bits))
         log.append(send_single_command(context, name, f"f 00c6 00c6 {len(chunk):02X}"))
-
-        if i + 10 >= len(string):
-            log.append(send_single_command(context, name, f"f 00c6 00c6 {len(chunk):02X}"))
 
         i += 10
 
@@ -363,7 +364,7 @@ class ViceInstance:
             daemon=True
         )
         self.thread.start()
-        
+        process_registry.register(self.name, self.proc)
         return True
 
 
@@ -435,6 +436,8 @@ class ViceInstance:
         if self.thread:
             self.thread.join(timeout=timeout)
 
+        process_registry.unregister(self.name)
+
 
 
 
@@ -444,24 +447,22 @@ class ViceInstance:
         if _helperdir not in sys.path:
             sys.path.insert(0, _helperdir)
         from appstate import progress_state
-        
-        stepnum = progress_state.step
-        stepnum = re.match(r'\d+', stepnum).group(0)
-        
+
+        stepnum = re.match(r'\d+', progress_state.step).group(0)
+
         if not test_step:
             test_step = stepnum
 
         if not self.proc or self.proc.poll() is not None:
-            return False
+            return False, "process not running"
 
         if not win_id:
-            return False
+            return False, "no window ID"
 
         reports_dir = "/testrunnerapp/reports"
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
 
-        print(f"[{self.name}] Screenshotting window ID: {win_id}")
         self.screenshot_count += 1
         filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
         filepath = os.path.join(reports_dir, filename)
@@ -471,12 +472,12 @@ class ViceInstance:
             subprocess.run(["xdotool", "windowactivate", win_id], check=True)
             time.sleep(0.2)
             subprocess.run(["import", "-window", win_id, filepath], check=True)
-            
+
             if croptheimage(filepath):
-                return filepath
-            return False
-        except subprocess.CalledProcessError:
-            return False
+                return True, filepath
+            return False, "cropping failed"
+        except subprocess.CalledProcessError as e:
+            return False, str(e)
 
     def take_screenshot(self, archtype=None, window="default", test_step=None):
         target_arch = archtype or getattr(self, "archtype", "c64")
@@ -497,64 +498,6 @@ class ViceInstance:
 
     
 
-
-    # def take_screenshot(self, test_step=None, filename=None, window="default"):
-    #     # test
-    #     _helperdir = "/testrunnersrc/pyhelpers"
-    #     if _helperdir not in sys.path:
-    #         sys.path.insert(0, _helperdir)
-    #     from appstate import progress_state
-    #     stepnum = progress_state.step
-    #     stepnum = re.match(r'\d+', stepnum).group(0)
-    #     if not test_step:
-    #         test_step = stepnum
-    #     # test
-    #     print("screenshotting window id: ", window)
-    #     if not self.proc or self.proc.poll() is not None:
-    #         print(f"[{self.name}] VICE process not running.")
-    #         return False
-
-    #     # determine which window to use
-    #     win_id = None
-    #     win_id = getattr(self, "window_id", None)
-    #     print("screenshotting window id: ", win_id)
-
-    #     if not win_id:
-    #         print(f"[{self.name}] No window ID cached, cannot take screenshot.")
-    #         return False
-
-    #     screenshot_base_dir = "/testrunnerapp/"
-    #     reports_dir = os.path.join(screenshot_base_dir, "reports")
-    #     if not os.path.exists(reports_dir):
-    #         os.makedirs(reports_dir)
-
-    #     self.screenshot_count += 1
-
-    #     if filename is None:
-    #         if test_step:
-    #             filename = f"screenshot-{self.name}-{test_step}-{self.screenshot_count}.png"
-    #         else:
-    #             filename = f"screenshot-{self.name}-{self.screenshot_count}.png"
-
-    #     filepath = os.path.join(reports_dir, filename)
-
-    #     try:
-    #         subprocess.run(["xdotool", "windowmap", win_id], check=True)
-    #         subprocess.run(["xdotool", "windowactivate", win_id], check=True)
-    #         subprocess.run(["import", "-window", win_id, filepath], check=True)
-    #         print(f"[{self.name}] Screenshot saved to {filepath}")
-
-    #         if croptheimage(filepath):
-    #             #return True
-    #             return filepath
-    #         else:
-    #             print(f"[{self.name}] Failed to crop screenshot")
-    #             return False
-
-    #     except subprocess.CalledProcessError as e:
-    #         print(f"[{self.name}] Failed to take screenshot: {e}")
-    #         return False
-     
 
     def take_screenshotc128(self, test_step=None, filename=None, window="default"):
         # test
@@ -820,12 +763,18 @@ def compile_cc65(source_file, output_file, archtype, extra_flags=None, optimize=
 def assemble_ca65(asm_file, obj_file, archtype):
     asm_path = os.path.join(base_dir, asm_file)
     obj_path = os.path.join(base_dir, obj_file)
-    
+
 
     if not os.path.exists(asm_path):
         return False, f"Assembly file not found: {asm_path}"
 
-    cmd = ['ca65', '-t', archtype, '-o', obj_path, asm_path]
+    # Resolve .include / .incbin relative to the source file's own directory
+    # (e.g. sidplaysfx.s does `.incbin "sidmusic1.bin"`). Additive: absolute
+    # paths used by other tests are unaffected.
+    asm_src_dir = os.path.dirname(asm_path)
+    cmd = ['ca65', '-t', archtype,
+           '-I', asm_src_dir, '--bin-include-dir', asm_src_dir,
+           '-o', obj_path, asm_path]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     success = proc.returncode == 0
     return success, proc.stdout
@@ -925,10 +874,18 @@ def assemble_object(ser_file, s_file, label, base_dir=base_dir):
     local_ser = os.path.join(out_dir, os.path.basename(ser_file))
     shutil.copyfile(ser_file, local_ser)
 
+    # co65 --code-label requires a valid C identifier (letters/digits/underscores).
+    # Sanitize: replace any character that isn't alphanumeric or _ with _.
+    # Then prepend _ to match cc65's C name-mangling convention so the linker
+    # finds the symbol when C code declares: extern unsigned char label[];
+    import re as _re
+    safe_label = _re.sub(r"[^A-Za-z0-9_]", "_", label)
+    safe_label = "_" + safe_label
+
     cmd = [
         "co65",
         "--code-label",
-        label,
+        safe_label,
         os.path.basename(local_ser)
     ]
 
@@ -940,5 +897,3 @@ def assemble_object(ser_file, s_file, label, base_dir=base_dir):
         os.replace(generated_s, s_file)
 
     return success, proc.stdout
-
-

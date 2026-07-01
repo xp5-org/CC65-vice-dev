@@ -42,6 +42,19 @@ class IP232Server:
         self.tx_symbols = 0
         self.name = None
 
+        # Correlation back to the Python-side VICE instance. connect_index is
+        # the 0-based accept order; instance_name is filled in by correlation
+        # against the context's instance start order (see correlate_instances).
+        self.connect_index = None
+        self.connected_at = time.time()
+        self.instance_name = None
+
+        # Captured payload bytes for per-instance validation/logging:
+        #   sent_text — bytes this client transmitted (relay received from it)
+        #   recv_text — bytes this client received (relay forwarded to it)
+        self.sent_text = bytearray()
+        self.recv_text = bytearray()
+
 
     def send_control(self, cmd, val=0):
         try:
@@ -108,7 +121,8 @@ class IP232Server:
 
         if out_bytes:
             self.rx_symbols += len(out_bytes)
-            print_petscii_line(out_bytes)
+            self.sent_text.extend(out_bytes)
+            print_petscii_line(out_bytes, sender=self.name or str(self.addr))
             self.broadcast(out_bytes)
 
 
@@ -119,6 +133,7 @@ class IP232Server:
                     try:
                         client.conn.sendall(data)
                         client.tx_symbols += len(data)
+                        client.recv_text.extend(data)
                     except Exception:
                         pass
 
@@ -140,7 +155,11 @@ class IP232Server:
 
 
 def petscii_to_ascii(b):
-    if 0xC1 <= b <= 0xDA:
+    if 0x41 <= b <= 0x5A:
+        # PETSCII uppercase A-Z (what typed/unshifted letters send on the wire)
+        return chr(b)
+    elif 0xC1 <= b <= 0xDA:
+        # Shifted-mode letters map to the same A-Z
         return chr(b - 0xC1 + ord('A'))
     elif 0x30 <= b <= 0x39:
         return chr(b)
@@ -151,15 +170,21 @@ def petscii_to_ascii(b):
     else:
         return '.'
 
-def print_petscii_line(data):
-    line = ''.join(petscii_to_ascii(b) for b in data)
+def petscii_bytes_to_str(data):
+    return ''.join(petscii_to_ascii(b) for b in data)
+
+
+def print_petscii_line(data, sender=None):
+    line = petscii_bytes_to_str(data)
     hex_line = ' '.join(f'{b:02X}' for b in data)
-    print(f"{line}    {hex_line}")
+    prefix = f"[{sender}] " if sender else ""
+    print(f"{prefix}{line}    {hex_line}")
 
 def client_thread(conn, addr, name):
     server = IP232Server(conn, addr)
     server.name = name
     with IP232Server.clients_lock:
+        server.connect_index = len(IP232Server.clients)   # 0-based accept order
         IP232Server.clients.append(server)
 
     threading.Thread(target=server.keep_alive, daemon=True).start()
@@ -225,18 +250,74 @@ def start_server(host=HOST, port=PORT):
     accept_thread = threading.Thread(target=accept_loop, daemon=True)
     accept_thread.start()
 
-def stop_server():
+def client_count():
+    """Number of clients currently connected to the relay."""
+    with IP232Server.clients_lock:
+        return len(IP232Server.clients)
+
+
+def correlate_instances(instance_names):
+    """Map relay connections to Python-side VICE instance names by connect order.
+
+    `instance_names` is the ordered list of instance names as they were
+    started (e.g. ["vice1_rx", "vice2_tx"]). The Nth client to connect is
+    assumed to be the Nth instance started — test_emulator_start enforces this
+    by waiting for each instance's relay connection before starting the next.
+    Returns a list of (connect_index, instance_name, addr) for logging.
+    """
+    mapping = []
+    if not instance_names:
+        return mapping
+    with IP232Server.clients_lock:
+        ordered = sorted(IP232Server.clients,
+                         key=lambda c: (c.connect_index if c.connect_index is not None else 0))
+        for c in ordered:
+            i = c.connect_index if c.connect_index is not None else 0
+            if 0 <= i < len(instance_names):
+                c.instance_name = instance_names[i]
+                mapping.append((i, c.instance_name, c.addr))
+    return mapping
+
+
+def get_client_traffic(instance_names, target_name):
+    """Return (sent_str, recv_str) for the named VICE instance, or (None, None).
+
+    Correlates connections to instance names by connect order (see
+    correlate_instances) and returns the decoded chars that instance
+    transmitted (sent) and received (recv). Safe to call while running.
+    """
+    correlate_instances(instance_names)
+    with IP232Server.clients_lock:
+        for c in IP232Server.clients:
+            if c.instance_name == target_name:
+                return (petscii_bytes_to_str(c.sent_text),
+                        petscii_bytes_to_str(c.recv_text))
+    return None, None
+
+
+def stop_server(instance_names=None):
     global server_socket, accept_thread
     logs = []
+
+    # Correlate connections to named VICE instances (by connect order) so the
+    # log identifies which instance sent/received what, not just "vice1/vice2".
+    correlate_instances(instance_names)
 
     # Close all client connections and clear client list
     with IP232Server.clients_lock:
         logs.append(f"number of clients: {len(IP232Server.clients)}")
         for idx, client in enumerate(IP232Server.clients):
-            cname = client.name or f"client{idx}"
-            logs.append(f"{cname}:")
-            logs.append(f"  symbols Rx: {client.rx_symbols}")
-            logs.append(f"  symbols Tx: {client.tx_symbols}")
+            cname = client.instance_name or client.name or f"client{idx}"
+            sent_str = petscii_bytes_to_str(client.sent_text)
+            recv_str = petscii_bytes_to_str(client.recv_text)
+            # "sent"/"received" are from the VICE instance's point of view:
+            # sent  = chars it transmitted out its serial port (relay rx)
+            # recv  = chars it received on its serial port (relay tx to it)
+            logs.append(f"{cname} (conn#{client.connect_index} {client.addr[0]}:{client.addr[1]}):")
+            logs.append(f"  symbols sent: {client.rx_symbols}")
+            logs.append(f"  symbols recv: {client.tx_symbols}")
+            logs.append(f"  sent chars: {sent_str!r}")
+            logs.append(f"  recv chars: {recv_str!r}")
             client.close()
         IP232Server.clients.clear()
 
@@ -266,6 +347,8 @@ def reset_client_stats():
         for client in IP232Server.clients:
             client.rx_symbols = 0
             client.tx_symbols = 0
+            client.sent_text = bytearray()
+            client.recv_text = bytearray()
 
 def get_clients():
     with IP232Server.clients_lock:

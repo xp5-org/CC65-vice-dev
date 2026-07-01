@@ -1,30 +1,11 @@
 import time
-import os, sys
-import subprocess
-import socket
-import threading
-import signal
-import pytesseract
-import re
-from PIL import Image
-
-
-import time
 import os
 import sys
 import subprocess
 import threading
 import re
 
-VICE_BASE_PORT = 65501
-assigned_window_ids = set()
-base_dir = "/testsrc/"
-print("hello i ran")
-
-
-VICE_BASE_PORT = 65501
-assigned_window_ids = set()
-base_dir = "/testsrc/"
+from appstate import process_registry
 
 class HatariInstance:
     def __init__(self, name=None, port=None, archtype=None, config_path=None,
@@ -100,8 +81,34 @@ class HatariInstance:
 
         self.ready_event.set()
         threading.Thread(target=self._reader, daemon=True).start()
+        process_registry.register(self.name, self.proc)
         return True
     
+    
+    def stop(self, timeout=5):
+        if not self.proc:
+            return True
+
+        self._stop_reading.set()
+
+        if self.proc.poll() is None:
+            try:
+                self.proc.terminate()
+                self.proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait()
+
+        try:
+            if self.proc.stdout:
+                self.proc.stdout.close()
+        except Exception:
+            pass
+
+        self.proc = None
+        self.window_id = None
+        process_registry.unregister(self.name)
+        return True
 
     def get_output(self):
         with self._output_lock:

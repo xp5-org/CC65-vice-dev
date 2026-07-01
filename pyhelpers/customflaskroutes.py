@@ -15,6 +15,14 @@ def register_routes(app):
     @app.route('/projectB')
     def projbtest():
         return "Hello from ProjectB"
+
+    @app.route("/get_path")
+    def get_path():
+        func_name = request.args.get("function")
+        for r in results:
+            if r["function"] == func_name:
+                return jsonify({"path": r["path"], "args": r["args"], "module": r["module"]})
+        return jsonify({"error": "Function not found"}), 404
     
 
 
